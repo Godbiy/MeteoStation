@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MeteoStation · Serial</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--panel2:#0d1117;--fg:#e6edf3;--mut:#7d8590;--line:#30363d;
+        --ok:#3fb950;--warn:#d29922;--err:#f85149;--accent:#58a6ff}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.4 -apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--fg);padding:10px;max-width:920px;margin:0 auto}
+  h1{font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--mut)}
+  .dot.on{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+
+  /* Connection bar */
+  .conn{display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:10px;flex-wrap:wrap}
+  .conn .stat{font-size:12px;color:var(--mut)}
+  .conn .stat.ok{color:var(--ok)}.conn .stat.err{color:var(--err)}
+
+  /* Source toggle */
+  .src-toggle{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .src-btn{background:none;color:var(--mut);border:none;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px;font-weight:500;transition:all .15s}
+  .src-btn:hover{color:var(--fg)}
+  .src-btn.active{background:var(--accent);color:#000;font-weight:700}
+
+  /* Lang buttons */
+  .lang-btn{background:none;color:var(--mut);border:1px solid var(--line);padding:3px 8px;border-radius:4px;cursor:pointer;font:inherit;font-size:11px;font-weight:600}
+  .lang-btn:hover{color:var(--fg)}
+  .lang-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+
+  /* Buttons */
+  .btn{background:var(--panel);color:var(--fg);border:1px solid var(--line);padding:7px 12px;border-radius:5px;cursor:pointer;font:inherit;font-size:13px;transition:background .12s}
+  .btn:hover:not(:disabled){background:#1f2937}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+  .btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+  .btn.ok{background:var(--ok);color:#000;border-color:var(--ok)}
+
+  /* Tabs */
+  .tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:12px;overflow-x:auto}
+  .tab{padding:9px 16px;cursor:pointer;color:var(--mut);background:none;border:none;border-bottom:2px solid transparent;font:inherit;font-size:13px;font-weight:500;white-space:nowrap}
+  .tab:hover{color:var(--fg)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+  .page{display:none}
+  .page.active{display:block}
+
+  /* Card */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;position:relative}
+  .card h2{font-size:11px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+  .fs-btn{position:absolute;top:8px;right:8px;background:rgba(13,17,23,.7);border:1px solid var(--line);color:var(--mut);padding:3px 7px;border-radius:4px;cursor:pointer;font:inherit;font-size:12px;line-height:1;z-index:2;backdrop-filter:blur(4px)}
+  .fs-btn:hover{color:var(--fg);background:var(--panel2)}
+  .gauge-card{position:relative}
+  .card.fs,.gauge-card.fs{position:fixed;inset:0;z-index:1000;margin:0;border-radius:0;overflow:auto;padding:14px;display:flex;flex-direction:column;touch-action:pinch-zoom;background:var(--bg)}
+  .card.fs h2{font-size:13px}
+  .card.fs svg,.gauge-card.fs svg{flex:1;max-width:none!important;max-height:none!important;width:100%!important;height:auto!important;min-height:50vh}
+  body.has-fs{overflow:hidden}
+
+  /* Live grid */
+  .live-top{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  @media(max-width:640px){.live-top{grid-template-columns:1fr}}
+  .gauge-card{background:linear-gradient(135deg,var(--panel) 0%,#1a2030 100%);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.03)}
+  .gauge-card svg{display:block;margin:0 auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+  .gauge-card .ttl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600}
+
+  /* Number row */
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px}
+  @media(max-width:560px){.nums{grid-template-columns:repeat(2,1fr)}}
+  .nums .cell{padding:6px;text-align:center;background:var(--panel2);border-radius:5px}
+  .nums .l{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  .nums .v{font-size:18px;font-weight:600;font-feature-settings:"tnum";margin-top:2px}
+  .nums .v.small{font-size:13px;font-family:monospace}
+  .nums .s{font-size:10px;color:var(--mut)}
+
+  /* Inputs */
+  select,input[type=number],input[type=text],input[type=date]{background:var(--panel2);color:var(--fg);border:1px solid var(--line);padding:6px 8px;border-radius:5px;font:inherit;font-size:13px;color-scheme:dark}
+  html{color-scheme:dark}
+  label.row{display:flex;gap:6px;align-items:center;cursor:pointer;font-size:13px}
+  .muted{color:var(--mut);font-size:12px}
+
+  /* Calibration grid */
+  .cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .cgrid .cbtn{padding:10px 4px;text-align:center;border-radius:5px;background:var(--panel2);border:1px solid var(--line);cursor:pointer;font:inherit;color:var(--fg);transition:all .15s}
+  .cgrid .cbtn:hover{background:#1f2937}
+  .cgrid .cbtn.set{background:var(--ok);color:#000;border-color:var(--ok)}
+  .cgrid .cbtn .d{font-size:14px;font-weight:700}
+  .cgrid .cbtn .b{font-size:10px;opacity:.8;margin-top:2px}
+
+  /* Bits row */
+  .bits{display:flex;gap:4px;justify-content:center;margin-top:6px;flex-wrap:wrap}
+  .bit{width:22px;height:22px;border:1px solid var(--line);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--mut);background:var(--panel2)}
+  .bit.on{background:var(--ok);color:#000;border-color:var(--ok)}
+  .bit.zero{background:var(--err);color:#fff;border-color:var(--err)}
+
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:8px;font-size:11px;line-height:1.35;max-height:280px;overflow:auto;margin:0;white-space:pre-wrap;word-break:break-all}
+
+  .nowarn{padding:10px;background:rgba(210,153,34,.1);border:1px solid var(--warn);color:var(--warn);border-radius:6px;font-size:12px;margin-top:6px}
+  .stat{font-size:12px;color:var(--mut)}.stat.ok{color:var(--ok)}.stat.err{color:var(--err)}
+</style>
+</head>
+<body>
+
+<h1>
+  <span class="dot" id="dot"></span>
+  MeteoStation
+  <span style="color:var(--mut);font-size:12px;font-weight:400" id="status">—</span>
+  <span style="margin-left:auto;display:flex;gap:6px">
+    <button class="lang-btn" data-lang="uk">UA</button>
+    <button class="lang-btn" data-lang="pl">PL</button>
+    <button class="lang-btn" data-lang="en">EN</button>
+  </span>
+</h1>
+
+<!-- SOURCE SWITCH + CONNECTION CONTROLS -->
+<div class="conn">
+  <div class="src-toggle">
+    <button id="src-serial" class="src-btn active">🔌 <span data-i18n="src_serial">Serial COM</span></button>
+    <button id="src-gsm" class="src-btn">📡 <span data-i18n="src_gsm">GSM live</span></button>
+  </div>
+
+  <!-- Serial controls -->
+  <div id="serial-ctl" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button id="connect" class="btn primary">🔌 <span data-i18n="connect">Connect</span></button>
+    <button id="disconnect" class="btn danger" disabled>✕ <span data-i18n="disconnect">Disconnect</span></button>
+    <label class="row"><span class="muted">Baud:</span>
+      <select id="baud">
+        <option>4800</option><option>9600</option><option>19200</option><option>38400</option><option>115200</option>
+      </select>
+    </label>
+    <label class="row"><input type="checkbox" id="autoreconn" checked> <span data-i18n="autoreconnect">auto-reconnect</span></label>
+  </div>
+
+  <!-- GSM controls -->
+  <div id="gsm-ctl" style="display:none;gap:8px;align-items:center;flex-wrap:wrap">
+    <button id="gsm-live-on"  class="btn primary">🔴 <span data-i18n="start_live">Start LIVE</span></button>
+    <button id="gsm-live-off" class="btn danger">⏸ <span data-i18n="stop_live">Stop LIVE</span></button>
+    <span class="muted" data-i18n="gsm_note">сервер скаже модулю на наступному POST</span>
+  </div>
+
+  <span class="stat" id="conn-stat" style="margin-left:auto">—</span>
+</div>
+<div id="webserial-warn" class="nowarn" style="display:none" data-i18n="webserial_warn">
+  ⚠ Browser не підтримує Web Serial. Потрібен Chrome або Edge.
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" data-page="live">📡 <span data-i18n="tab_live">Live</span></button>
+  <button class="tab" data-page="calib">🧭 <span data-i18n="tab_calib">Калібровка</span></button>
+  <button class="tab" data-page="settings">⚙ <span data-i18n="tab_settings">Налаштування</span></button>
+  <button class="tab" data-page="debug">🔧 <span data-i18n="tab_debug">Debug</span></button>
+</div>
+
+<!-- ============================== LIVE PAGE ============================== -->
+<div class="page active" id="page-live">
+
+  <div class="live-top">
+    <!-- compass -->
+    <div class="gauge-card">
+      <div class="ttl" data-i18n="wind_direction">Напрямок вітру</div>
+      <svg viewBox="0 0 220 220" width="100%" height="220" style="max-width:220px">
+        <defs>
+          <radialGradient id="compass-bg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#1a2030"/>
+            <stop offset="70%" stop-color="#0d1117"/>
+            <stop offset="100%" stop-color="#000"/>
+          </radialGradient>
+          <linearGradient id="needle-n" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ff6b6b"/>
+            <stop offset="100%" stop-color="#c92a2a"/>
+          </linearGradient>
+          <linearGradient id="needle-s" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#495057"/>
+            <stop offset="100%" stop-color="#212529"/>
+          </linearGradient>
+        </defs>
+
+        <!-- cardinal labels OUTSIDE ring (no overlap with ticks) -->
+        <text x="110" y="14"  text-anchor="middle" fill="#ff5252" font-size="14" font-weight="800" font-family="system-ui">N</text>
+        <text x="110" y="214" text-anchor="middle" fill="#adb5bd" font-size="12" font-weight="700">S</text>
+        <text x="10"  y="114" text-anchor="middle" fill="#adb5bd" font-size="12" font-weight="700">W</text>
+        <text x="210" y="114" text-anchor="middle" fill="#adb5bd" font-size="12" font-weight="700">E</text>
+        <text x="180" y="44"  text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">NE</text>
+        <text x="180" y="186" text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">SE</text>
+        <text x="40"  y="186" text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">SW</text>
+        <text x="40"  y="44"  text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">NW</text>
+
+        <!-- outer ring -->
+        <circle cx="110" cy="110" r="92" fill="none" stroke="var(--line)" stroke-width="1"/>
+        <circle cx="110" cy="110" r="90" fill="url(#compass-bg)" stroke="#2a3140" stroke-width="2"/>
+
+        <!-- 24 tick marks (every 15°) -->
+        <g id="ticks"></g>
+
+        <!-- inner dashed ring -->
+        <circle cx="110" cy="110" r="58" fill="none" stroke="#2a3140" stroke-width="1" stroke-dasharray="2 3"/>
+
+        <!-- needle group, rotated -->
+        <g id="arrow-grp" transform="rotate(0 110 110)" style="transition:transform .35s cubic-bezier(.34,1.56,.64,1);opacity:.3">
+          <polygon points="110,28 102,110 118,110" fill="url(#needle-n)" stroke="#a01818" stroke-width=".5"/>
+          <polygon points="110,192 102,110 118,110" fill="url(#needle-s)" stroke="#0a0a0a" stroke-width=".5"/>
+          <circle cx="110" cy="110" r="8" fill="#2a3140" stroke="#5a6470" stroke-width="1.5"/>
+          <circle cx="110" cy="110" r="3" fill="#adb5bd"/>
+        </g>
+      </svg>
+      <div style="font-size:24px;font-weight:700;margin-top:6px;letter-spacing:.5px"><span id="t-dir">—</span><span class="muted" style="font-size:14px;font-weight:400;margin-left:8px" id="t-dir-deg">— °</span></div>
+      <div style="font-size:11px;color:var(--mut);margin-top:2px">byte=<span style="color:var(--accent);font-family:monospace;font-weight:600" id="center-byte">—</span> <span id="t-dir-conf"></span></div>
+    </div>
+
+    <!-- speedometer -->
+    <div class="gauge-card">
+      <div class="ttl" data-i18n="wind_speed">Швидкість вітру</div>
+      <svg viewBox="0 0 220 140" width="100%" height="140" style="max-width:220px">
+        <defs>
+          <linearGradient id="spd-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stop-color="#3fb950"/>
+            <stop offset="40%"  stop-color="#56d364"/>
+            <stop offset="60%"  stop-color="#d29922"/>
+            <stop offset="85%"  stop-color="#f0883e"/>
+            <stop offset="100%" stop-color="#f85149"/>
+          </linearGradient>
+          <radialGradient id="hub-grad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="#adb5bd"/>
+            <stop offset="60%"  stop-color="#495057"/>
+            <stop offset="100%" stop-color="#1a1f25"/>
+          </radialGradient>
+        </defs>
+
+        <!-- arc track + color zones -->
+        <path d="M 30 115 A 80 80 0 0 1 190 115" fill="none" stroke="#1a2030" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 30 115 A 80 80 0 0 1 190 115" fill="none" stroke="url(#spd-grad)" stroke-width="14" stroke-linecap="round" opacity=".22"/>
+        <path id="spd-arc" d="M 30 115 L 30 115" fill="none" stroke="url(#spd-grad)" stroke-width="14" stroke-linecap="round"/>
+
+        <!-- tick marks (built in JS) -->
+        <g id="spd-ticks"></g>
+
+        <!-- tick number labels, placed OUTSIDE the arc -->
+        <text x="22"  y="135" text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">0</text>
+        <text x="55"  y="42"  text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">25</text>
+        <text x="110" y="22"  text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">50</text>
+        <text x="165" y="42"  text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">75</text>
+        <text x="198" y="135" text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">100</text>
+
+        <!-- needle (rotates around 110,115) -->
+        <g id="spd-needle" transform="rotate(-90 110 115)" style="transition:transform .35s cubic-bezier(.34,1.56,.64,1)">
+          <polygon points="110,40 106,115 114,115" fill="#f85149"/>
+          <polygon points="110,115 104,123 116,123" fill="#5a6470"/>
+        </g>
+        <!-- hub -->
+        <circle cx="110" cy="115" r="9" fill="url(#hub-grad)" stroke="#000" stroke-width=".5"/>
+        <circle cx="110" cy="115" r="3" fill="#adb5bd"/>
+      </svg>
+      <div style="font-size:30px;font-weight:700;line-height:1;margin-top:6px;font-family:system-ui"><span id="t-kmh">—</span><span class="muted" style="font-size:13px;font-weight:600;margin-left:6px;letter-spacing:1px">KM/H</span></div>
+      <div class="muted" style="font-size:11px;margin-top:4px"><span id="t-pps">—</span> imp/s · min/max <span style="color:var(--fg);font-weight:600" id="t-mm">—/—</span></div>
+    </div>
+  </div>
+
+  <!-- numbers strip -->
+  <div class="nums">
+    <div class="cell">
+      <div class="l" data-i18n="battery">Батарея</div>
+      <div class="v" id="t-batt">—<span style="font-size:13px;color:var(--mut)"> V</span></div>
+      <div class="s" id="t-batt-mv">— mV</div>
+    </div>
+    <div class="cell">
+      <div class="l">☀ Сонце</div>
+      <div class="v" id="t-solar">—<span style="font-size:13px;color:var(--mut)"> V</span></div>
+      <div class="s" id="t-solar-mv">— mV</div>
+    </div>
+    <div class="cell">
+      <div class="l" data-i18n="signal">Сигнал</div>
+      <div class="v" id="t-csq">—</div>
+      <div class="s" id="t-csq-sub">— · GSM only</div>
+    </div>
+    <div class="cell">
+      <div class="l" data-i18n="vane_byte">Vane byte</div>
+      <div class="v small" id="t-byte-bin">—</div>
+      <div class="s">dec=<span id="t-byte-dec">—</span></div>
+    </div>
+    <div class="cell">
+      <div class="l" data-i18n="last_sample">Last sample</div>
+      <div class="v" id="t-age" style="font-size:14px">—</div>
+      <div class="s" data-i18n="age_sec">age (s)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== CALIBRATION ============================== -->
+<div class="page" id="page-calib">
+  <div class="card">
+    <h2><span data-i18n="calib_title">8-точкова калібровка</span> <span style="color:var(--mut);font-weight:400" id="calib-progress">0/8</span></h2>
+    <div class="muted" style="font-size:12px;margin-bottom:10px" data-i18n="calib_hint">
+      Постав vane фізично у позицію → клацни кнопку. Поточний байт зафіксується.
+    </div>
+    <div class="cgrid" id="calib-grid"></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
+      <button id="calib-reset" class="btn danger">↻ <span data-i18n="reset_all">Reset all</span></button>
+      <button id="calib-load-default" class="btn">⇩ <span data-i18n="load_default">Стандартна</span></button>
+      <button id="calib-export" class="btn">⎘ <span data-i18n="copy_json">Copy JSON</span></button>
+      <button id="calib-push" class="btn primary">↑ <span data-i18n="push_srv">На сервер</span></button>
+      <button id="calib-pull" class="btn">↓ <span data-i18n="pull_srv">З сервера</span></button>
+      <span class="stat" id="calib-stat" style="margin-left:auto;align-self:center"></span>
+    </div>
+    <div id="calib-srv-meta" class="muted" style="margin-top:6px;font-size:11px"></div>
+  </div>
+  <div class="card">
+    <h2 data-i18n="cur_live">Поточний live</h2>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="font-family:monospace;font-size:22px;color:var(--accent)" id="calib-cur-byte">—</div>
+      <div>
+        <div class="muted" style="font-size:11px">bits (RED=0=closed, GREEN=1)</div>
+        <div class="bits" id="calib-bits"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== SETTINGS ============================== -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <h2 data-i18n="speed_calib">Калібровка швидкості</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label class="muted" data-i18n="kmh_per_pulse">km/h per pulse/s:</label>
+      <input type="number" id="speed-factor" step="0.1" value="2.4" style="width:80px">
+      <span class="muted" style="font-size:11px">Davis cup = 2.4 · SparkFun = 2.4</span>
+    </div>
+    <button id="reset-mm" class="btn" style="margin-top:8px">↻ <span data-i18n="reset_minmax">Reset min/max</span></button>
+  </div>
+  <div class="card">
+    <h2 data-i18n="vane_mode">Режим інтерпретації vane байта</h2>
+    <label class="row" style="margin-bottom:4px">
+      <input type="radio" name="mode" value="calib" checked> <span data-i18n="mode_calib">калібрована таблиця (рекомендовано)</span>
+    </label>
+    <label class="row" style="margin-bottom:4px">
+      <input type="radio" name="mode" value="angle"> <span data-i18n="mode_angle">byte → angle (0-255 = 0-360°)</span>
+    </label>
+    <label class="row" style="margin-bottom:4px">
+      <input type="radio" name="mode" value="onehot0"> <span data-i18n="mode_onehot0">one-hot, closed=0</span>
+    </label>
+    <label class="row">
+      <input type="radio" name="mode" value="onehot1"> <span data-i18n="mode_onehot1">one-hot, closed=1</span>
+    </label>
+  </div>
+</div>
+
+<!-- ============================== DEBUG ============================== -->
+<div class="page" id="page-debug">
+  <div class="card">
+    <h2>Raw vane reads</h2>
+    <div class="nums" style="border:none;padding:0">
+      <div class="cell">
+        <div class="l">ON (MOSFET high)</div>
+        <div class="v small" id="t-on">—</div>
+        <div class="s">dec=<span id="t-on-dec">—</span></div>
+      </div>
+      <div class="cell">
+        <div class="l">OFF (MOSFET low)</div>
+        <div class="v small" id="t-off">—</div>
+        <div class="s">dec=<span id="t-off-dec">—</span></div>
+      </div>
+      <div class="cell">
+        <div class="l">MOSFET effect</div>
+        <div class="v" id="t-mosfet" style="font-size:14px">—</div>
+        <div class="s">ON ≠ OFF = ok</div>
+      </div>
+      <div class="cell">
+        <div class="l">Lines/sec</div>
+        <div class="v" id="t-rate2">—</div>
+        <div class="s">rx rate</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Raw stream <span style="color:var(--mut);font-weight:400" id="rawstat"></span></h2>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <button id="clear" class="btn">Clear</button>
+    </div>
+    <pre id="raw">— чекаю на COM —</pre>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const DIRS = ['N','NE','E','SE','S','SW','W','NW'];
+const $ = id => document.getElementById(id);
+
+/* === Source endpoint (used by GSM mode) === */
+const SRV = (location.search.match(/srv=([^&]+)/)||[])[1]
+         || 'https://stelnet.stelweld.com.pl/petro/MeteoStation/TestKurwa';
+
+/* === i18n === */
+const I18N = {
+  uk: {
+    src_serial:'Serial COM', src_gsm:'GSM live', connect:'Connect', disconnect:'Disconnect',
+    autoreconnect:'auto-reconnect', start_live:'Start LIVE', stop_live:'Stop LIVE',
+    gsm_note:'сервер скаже модулю на наступному POST',
+    webserial_warn:'⚠ Browser не підтримує Web Serial. Потрібен Chrome або Edge.',
+    tab_live:'Live', tab_calib:'Калібровка', tab_settings:'Налаштування', tab_debug:'Debug',
+    wind_direction:'Напрямок вітру', wind_speed:'Швидкість вітру',
+    battery:'Батарея', signal:'Сигнал', vane_byte:'Vane byte', last_sample:'Останній зразок', age_sec:'age (s)',
+    calib_title:'8-точкова калібровка',
+    calib_hint:'Постав vane фізично у позицію → клацни кнопку. Поточний байт зафіксується.',
+    reset_all:'Reset all', copy_json:'Copy JSON', cur_live:'Поточний live',
+    speed_calib:'Калібровка швидкості', kmh_per_pulse:'km/h per pulse/s:',
+    reset_minmax:'Reset min/max', vane_mode:'Режим інтерпретації vane байта',
+    mode_calib:'калібрована таблиця (рекомендовано)',
+    mode_angle:'byte → angle (0-255 = 0-360°)',
+    mode_onehot0:'one-hot, closed=0', mode_onehot1:'one-hot, closed=1',
+    load_default:'Стандартна', push_srv:'На сервер', pull_srv:'З сервера',
+    srv_pushed:'записано', srv_pulled:'завантажено', srv_err:'помилка',
+    srv_empty:'на сервері нічого', srv_updated:'оновлено ', loaded_default:'стандарт',
+  },
+  pl: {
+    src_serial:'Serial COM', src_gsm:'GSM na żywo', connect:'Połącz', disconnect:'Rozłącz',
+    autoreconnect:'auto-połączenie', start_live:'Start LIVE', stop_live:'Stop LIVE',
+    gsm_note:'serwer powie modułowi przy następnym POST',
+    webserial_warn:'⚠ Browser nie wspiera Web Serial. Potrzebny Chrome lub Edge.',
+    tab_live:'Na żywo', tab_calib:'Kalibracja', tab_settings:'Ustawienia', tab_debug:'Debug',
+    wind_direction:'Kierunek wiatru', wind_speed:'Prędkość wiatru',
+    battery:'Bateria', signal:'Sygnał', vane_byte:'Vane bajt', last_sample:'Ostatnia próbka', age_sec:'wiek (s)',
+    calib_title:'Kalibracja 8 punktów',
+    calib_hint:'Ustaw vane fizycznie w pozycję → kliknij przycisk. Bieżący bajt zostanie zapisany.',
+    reset_all:'Reset all', copy_json:'Copy JSON', cur_live:'Bieżący live',
+    speed_calib:'Kalibracja prędkości', kmh_per_pulse:'km/h na impuls/s:',
+    reset_minmax:'Reset min/max', vane_mode:'Tryb interpretacji bajtu vane',
+    mode_calib:'kalibrowana tabela (rekomendowane)',
+    mode_angle:'bajt → kąt (0-255 = 0-360°)',
+    mode_onehot0:'one-hot, closed=0', mode_onehot1:'one-hot, closed=1',
+    load_default:'Standard', push_srv:'Na serwer', pull_srv:'Z serwera',
+    srv_pushed:'zapisano', srv_pulled:'pobrano', srv_err:'błąd',
+    srv_empty:'serwer pusty', srv_updated:'zaktualizowano ', loaded_default:'standard',
+  },
+  en: {
+    src_serial:'Serial COM', src_gsm:'GSM live', connect:'Connect', disconnect:'Disconnect',
+    autoreconnect:'auto-reconnect', start_live:'Start LIVE', stop_live:'Stop LIVE',
+    gsm_note:'server tells the module on next POST',
+    webserial_warn:'⚠ Browser does not support Web Serial. Chrome or Edge required.',
+    tab_live:'Live', tab_calib:'Calibration', tab_settings:'Settings', tab_debug:'Debug',
+    wind_direction:'Wind direction', wind_speed:'Wind speed',
+    battery:'Battery', signal:'Signal', vane_byte:'Vane byte', last_sample:'Last sample', age_sec:'age (s)',
+    calib_title:'8-point calibration',
+    calib_hint:'Point the vane physically at the direction → click the button. Current byte is captured.',
+    reset_all:'Reset all', copy_json:'Copy JSON', cur_live:'Current live',
+    speed_calib:'Speed calibration', kmh_per_pulse:'km/h per pulse/s:',
+    reset_minmax:'Reset min/max', vane_mode:'Vane byte interpretation',
+    mode_calib:'calibrated lookup (recommended)',
+    mode_angle:'byte → angle (0-255 = 0-360°)',
+    mode_onehot0:'one-hot, closed=0', mode_onehot1:'one-hot, closed=1',
+    load_default:'Default', push_srv:'Push', pull_srv:'Pull',
+    srv_pushed:'pushed', srv_pulled:'pulled', srv_err:'error',
+    srv_empty:'server empty', srv_updated:'updated ', loaded_default:'default loaded',
+  },
+};
+let LANG = localStorage.getItem('lang') || 'uk';
+function t(key){ return (I18N[LANG] && I18N[LANG][key]) || I18N.en[key] || key; }
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === LANG));
+  document.documentElement.lang = LANG;
+}
+document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => {
+  LANG = b.dataset.lang; localStorage.setItem('lang', LANG); applyI18n();
+}));
+
+let port = null, reader = null, keepReading = false;
+let lineBuf = '';
+let rawLines = [];
+const RAW_MAX = 30;
+let rxCount = 0, lastRateUpdate = Date.now();
+let lastSampleTs = 0;
+
+if (!('serial' in navigator)){
+  $('webserial-warn').style.display = 'block';
+  $('connect').disabled = true;
+}
+
+/* ---- tabs ---- */
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  $('page-' + t.dataset.page).classList.add('active');
+}));
+
+/* ---- calibration ---- */
+const DEFAULT_CALIB = { N:66, NE:194, E:160, SE:40, S:24, SW:17, W:21, NW:5 };
+const CALIB_KEY = '__EDIT_KEY__';
+let calib = (() => {
+  try { const j = JSON.parse(localStorage.getItem('vane_calib') || 'null');
+        if (j && Object.keys(j).length) return j; } catch {}
+  return { ...DEFAULT_CALIB };
+})();
+function saveCalib(){ localStorage.setItem('vane_calib', JSON.stringify(calib)); renderCalibGrid(); }
+function renderCalibGrid(){
+  const el = $('calib-grid'); el.innerHTML = '';
+  let n = 0;
+  for (let i = 0; i < 8; i++){
+    const d = DIRS[i], cur = calib[d];
+    if (cur != null) n++;
+    const b = document.createElement('button');
+    b.className = 'cbtn' + (cur != null ? ' set' : '');
+    b.innerHTML = `<div class="d">${d}</div><div class="b">${cur != null ? 'byte=' + cur : 'set'}</div>`;
+    b.onclick = () => {
+      if (lastVOn == null){ $('calib-stat').textContent = '⚠ нема даних'; return; }
+      calib[d] = lastVOn;
+      saveCalib();
+      $('calib-stat').textContent = `✓ ${d}=${lastVOn}`;
+      $('calib-stat').className = 'stat ok';
+    };
+    el.appendChild(b);
+  }
+  $('calib-progress').textContent = `${n}/8`;
+}
+function hamming(a,b){ let x=(a^b)&0xFF, c=0; while(x){c+=x&1;x>>=1;} return c; }
+function vaneDirCalibrated(b){
+  let best=null, bestH=99, bestAbs=999;
+  for (let i=0;i<8;i++){
+    const c=calib[DIRS[i]]; if (c==null) continue;
+    const h=hamming(b,c), ab=Math.abs(b-c);
+    if (h<bestH || (h===bestH && ab<bestAbs)){ bestH=h; bestAbs=ab; best=i; }
+  }
+  return {idx:best, hamming:bestH};
+}
+function vaneDirOneHot(b, pol){
+  if (b==null) return null;
+  if (pol===0 && b===0xFF) return null;
+  if (pol===1 && b===0x00) return null;
+  for (let i=0;i<8;i++){
+    const closed = pol===1 ? (b&(1<<i)) : !(b&(1<<i));
+    if (closed) return i;
+  }
+  return null;
+}
+
+/* ---- rendering ---- */
+function getMode(){ return document.querySelector('input[name="mode"]:checked').value; }
+function getSpeedFactor(){ const v=parseFloat($('speed-factor').value); return isNaN(v)?2.4:v; }
+
+function renderBits(b, closedIsOne, targetId){
+  const el = $(targetId); if (!el) return; el.innerHTML = '';
+  for (let i = 7; i >= 0; i--){
+    const bit = (b >> i) & 1;
+    const closed = closedIsOne ? !!bit : !bit;
+    const d = document.createElement('div');
+    d.className = 'bit ' + (closed ? 'zero' : 'on');
+    d.textContent = i;
+    el.appendChild(d);
+  }
+}
+
+function setCompassAngle(deg){
+  const a = $('arrow-grp');
+  if (deg == null){ a.setAttribute('transform','rotate(0 110 110)'); a.style.opacity='0.3'; return; }
+  a.setAttribute('transform', `rotate(${deg} 110 110)`);
+  a.style.opacity = '1';
+}
+
+function setSpeedometer(kmh){
+  /* Needle pivot (110, 115). 0 km/h = -90° (left), 100 km/h = +90° (right). */
+  const clamped = Math.min(100, Math.max(0, kmh));
+  const deg = -90 + (clamped / 100) * 180;
+  $('spd-needle').setAttribute('transform', `rotate(${deg} 110 115)`);
+  /* Arc fill: upper semicircle from (30,115) to (190,115), radius 80, always large=0. */
+  if (clamped < 0.5){
+    $('spd-arc').setAttribute('d', 'M 30 115 L 30 115');
+    return;
+  }
+  const angleRad = ((clamped / 100) * 180 - 180) * Math.PI / 180;
+  const endX = 110 + 80 * Math.cos(angleRad);
+  const endY = 115 + 80 * Math.sin(angleRad);
+  $('spd-arc').setAttribute('d', `M 30 115 A 80 80 0 0 1 ${endX.toFixed(2)} ${endY.toFixed(2)}`);
+}
+
+/* Build tick marks for compass and speedometer once at startup. */
+function buildTicks(){
+  /* Compass: 24 ticks every 15°; 8 long ones at multiples of 45°. Center 110,110. */
+  const ticksG = $('ticks');
+  for (let a = 0; a < 360; a += 15){
+    const major = (a % 45) === 0;
+    const inner = major ? 78 : 84;
+    const outer = 88;
+    const rad = (a - 90) * Math.PI / 180;
+    const x1 = 110 + inner * Math.cos(rad), y1 = 110 + inner * Math.sin(rad);
+    const x2 = 110 + outer * Math.cos(rad), y2 = 110 + outer * Math.sin(rad);
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1', x1.toFixed(1)); l.setAttribute('y1', y1.toFixed(1));
+    l.setAttribute('x2', x2.toFixed(1)); l.setAttribute('y2', y2.toFixed(1));
+    l.setAttribute('stroke', major ? '#5a6470' : '#363d47');
+    l.setAttribute('stroke-width', major ? '2' : '1');
+    ticksG.appendChild(l);
+  }
+  /* Speedometer: 11 ticks (0..100 every 10). Center 110,115. */
+  const sg = $('spd-ticks');
+  for (let i = 0; i <= 10; i++){
+    const major = (i % 5) === 0;
+    const a = -180 + (i / 10) * 180;
+    const rad = a * Math.PI / 180;
+    const inner = major ? 65 : 70;
+    const outer = 78;
+    const x1 = 110 + inner * Math.cos(rad), y1 = 115 + inner * Math.sin(rad);
+    const x2 = 110 + outer * Math.cos(rad), y2 = 115 + outer * Math.sin(rad);
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1', x1.toFixed(1)); l.setAttribute('y1', y1.toFixed(1));
+    l.setAttribute('x2', x2.toFixed(1)); l.setAttribute('y2', y2.toFixed(1));
+    l.setAttribute('stroke', major ? '#7d8590' : '#363d47');
+    l.setAttribute('stroke-width', major ? '2' : '1');
+    sg.appendChild(l);
+  }
+}
+buildTicks();
+
+/* ---- unified snapshot renderer ---- */
+let lastVOn = null;
+let mmMin = Infinity, mmMax = 0;
+function renderSnapshot({ vOn, vOff, pps, battMv, solarMv, csq, srcLabel }){
+  lastVOn = vOn;
+  lastSampleTs = Date.now();
+  const onBin  = vOn.toString(2).padStart(8,'0');
+  const offBin = (vOff != null ? vOff : 0).toString(2).padStart(8,'0');
+
+  /* debug values */
+  $('t-on').textContent = onBin;
+  $('t-on-dec').textContent = vOn;
+  $('t-off').textContent = vOff != null ? offBin : '—';
+  $('t-off-dec').textContent = vOff != null ? vOff : '—';
+  $('t-mosfet').innerHTML = vOff == null ? '<span class="muted">— (GSM)</span>'
+    : vOn === vOff ? '<span style="color:var(--err)">⚠ no effect</span>'
+    : '<span style="color:var(--ok)">✓ ok</span>';
+
+  /* center + byte */
+  $('center-byte').textContent = vOn;
+  $('t-byte-bin').textContent = onBin;
+  $('t-byte-dec').textContent = vOn;
+
+  /* speed */
+  const sf = getSpeedFactor();
+  const kmh = (pps || 0) * sf;
+  $('t-kmh').textContent = kmh.toFixed(1);
+  $('t-pps').textContent = pps || 0;
+  if (kmh < mmMin) mmMin = kmh;
+  if (kmh > mmMax) mmMax = kmh;
+  $('t-mm').textContent = (mmMin === Infinity ? '—' : mmMin.toFixed(1)) + '/' + mmMax.toFixed(1);
+  setSpeedometer(kmh);
+
+  /* batt */
+  if (battMv != null){
+    $('t-batt').innerHTML = (battMv/1000).toFixed(2) + '<span style="font-size:13px;color:var(--mut)"> V</span>';
+    $('t-batt-mv').textContent = battMv + ' mV';
+  }
+  /* solar */
+  if (solarMv != null){
+    const sV = solarMv / 1000;
+    $('t-solar').innerHTML = sV.toFixed(2) + '<span style="font-size:13px;color:var(--mut)"> V</span>';
+    $('t-solar-mv').textContent = solarMv + ' mV';
+    $('t-solar').style.color = sV < 1 ? 'var(--mut)' : sV < 4 ? 'var(--warn)' : 'var(--ok)';
+  } else {
+    $('t-solar').innerHTML = '—<span style="font-size:13px;color:var(--mut)"> V</span>';
+    $('t-solar-mv').textContent = 'no data';
+  }
+  /* csq */
+  if (csq != null){
+    $('t-csq').textContent = csq === 99 ? '—' : csq;
+    $('t-csq-sub').textContent = csq === 99 ? 'unknown'
+      : csq < 10 ? 'weak' : csq < 20 ? 'fair' : csq < 28 ? 'good' : 'excellent';
+  }
+
+  /* direction */
+  const mode = getMode();
+  let dirIdx = null, dirDeg = null, conf = '';
+  if (mode === 'calib'){
+    const r = vaneDirCalibrated(vOn);
+    if (r.idx != null){
+      dirIdx = r.idx; dirDeg = r.idx * 45;
+      conf = `H=${r.hamming} ${r.hamming<=1?'★':r.hamming<=2?'✓':r.hamming<=4?'~':'?'}`;
+    }
+  } else if (mode === 'angle'){
+    dirDeg = (vOn / 256) * 360;
+    dirIdx = Math.round(dirDeg / 45) % 8;
+  } else {
+    const pol = mode === 'onehot1' ? 1 : 0;
+    const idx = vaneDirOneHot(vOn, pol);
+    if (idx != null){ dirIdx = idx; dirDeg = idx * 45; }
+  }
+  setCompassAngle(dirDeg);
+  $('t-dir').textContent = dirIdx != null ? DIRS[dirIdx] : '—';
+  $('t-dir-deg').textContent = dirDeg != null ? dirDeg.toFixed(0) + '°' : '— °';
+  $('t-dir-conf').textContent = conf;
+
+  $('calib-cur-byte').textContent = vOn + ' (' + onBin + ')';
+  renderBits(vOn, false, 'calib-bits');
+}
+
+/* Serial line parser → renderSnapshot. */
+function parseLine(line){
+  rxCount++;
+  rawLines.unshift(line);
+  if (rawLines.length > RAW_MAX) rawLines.length = RAW_MAX;
+  $('raw').textContent = rawLines.join('\n');
+  const m = line.match(/ON=([01]{8})\s+OFF=([01]{8})\s+dec=(\d+)\s+P=(\d+)(?:\s+B=(\d+))?(?:\s+S=(\d+))?(?:\s+C=(\d+))?/);
+  if (!m) return;
+  renderSnapshot({
+    vOn:  parseInt(m[1], 2),
+    vOff: parseInt(m[2], 2),
+    pps:  +m[4],
+    battMv:  m[5] != null ? +m[5] : null,
+    solarMv: m[6] != null ? +m[6] : null,
+    csq:     m[7] != null ? +m[7] : null,
+    srcLabel: 'serial',
+  });
+}
+
+/* GSM snapshot from ?live_now → renderSnapshot. */
+function renderGsmSnapshot(j){
+  if (!j || !j.ok) return;
+  rxCount++;
+  const line = `[GSM] ${j.timestamp || '?'}  vOn=${j.vane_on}  vOff=${j.vane_off}  pps=${j.pulses_sec}  batt=${j.batt_mv}mV  solar=${j.solar_mv ?? '—'}mV  csq=${j.csq}  age=${j.age_sec}s`;
+  rawLines.unshift(line);
+  if (rawLines.length > RAW_MAX) rawLines.length = RAW_MAX;
+  $('raw').textContent = rawLines.join('\n');
+  renderSnapshot({
+    vOn: j.vane_on != null ? j.vane_on : j.vane,
+    vOff: j.vane_off,
+    pps: j.pulses_sec,
+    battMv: j.batt_mv,
+    solarMv: j.solar_mv,
+    csq: j.csq,
+    srcLabel: 'gsm',
+  });
+}
+
+/* ---- serial ---- */
+async function connect(){
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: +$('baud').value || 4800 });
+    $('connect').disabled = true;
+    $('disconnect').disabled = false;
+    $('dot').className = 'dot on';
+    $('status').textContent = 'connected @ ' + $('baud').value;
+    $('conn-stat').textContent = '✓ streaming';
+    $('conn-stat').className = 'stat ok';
+    keepReading = true;
+    readLoop();
+  } catch (e){
+    $('conn-stat').textContent = 'failed: ' + e.message;
+    $('conn-stat').className = 'stat err';
+  }
+}
+async function readLoop(){
+  reader = port.readable.getReader();
+  const dec = new TextDecoder();
+  try {
+    while (keepReading){
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      lineBuf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = lineBuf.indexOf('\n')) !== -1){
+        const line = lineBuf.slice(0, idx).replace(/\r$/, '');
+        lineBuf = lineBuf.slice(idx + 1);
+        if (line) parseLine(line);
+      }
+      if (lineBuf.length > 4096) lineBuf = lineBuf.slice(-2048);
+    }
+  } catch (e){
+    $('conn-stat').textContent = e.message.includes('overrun')||e.message.includes('framing')
+      ? '⟳ auto-reconnect (' + e.message + ')'
+      : 'read error: ' + e.message;
+    $('conn-stat').className = 'stat err';
+    if (keepReading && $('autoreconn').checked){
+      try { reader.releaseLock(); } catch {}
+      setTimeout(() => { if (keepReading && port) readLoop(); }, 300);
+    }
+    return;
+  } finally {
+    try { reader.releaseLock(); } catch {}
+  }
+}
+async function disconnect(){
+  keepReading = false;
+  try { await reader?.cancel(); } catch {}
+  try { await port?.close(); } catch {}
+  port = null; reader = null;
+  $('connect').disabled = false;
+  $('disconnect').disabled = true;
+  $('dot').className = 'dot';
+  $('status').textContent = 'disconnected';
+  $('conn-stat').textContent = 'closed';
+  $('conn-stat').className = 'stat';
+}
+
+/* ---- events ---- */
+$('connect').addEventListener('click', connect);
+$('disconnect').addEventListener('click', disconnect);
+$('clear').addEventListener('click', () => { rawLines = []; $('raw').textContent = '— cleared —'; });
+$('calib-reset').addEventListener('click', () => { if (confirm('Reset all 8?')){ calib = {}; saveCalib(); $('calib-stat').textContent='reset'; $('calib-stat').className='stat'; }});
+$('calib-load-default').addEventListener('click', () => {
+  calib = { ...DEFAULT_CALIB }; saveCalib();
+  $('calib-stat').textContent = '✓ ' + t('loaded_default'); $('calib-stat').className = 'stat ok';
+});
+$('calib-export').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(JSON.stringify(calib,null,2)); $('calib-stat').textContent='✓ copied'; }
+  catch(e){ $('calib-stat').textContent='copy failed'; }
+});
+$('calib-push').addEventListener('click', async () => {
+  $('calib-stat').textContent = '…'; $('calib-stat').className = 'stat';
+  try {
+    const r = await fetch(SRV + '?save_calib=1&key=' + CALIB_KEY, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(calib),
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok) throw new Error(j.error || 'http ' + r.status);
+    $('calib-stat').textContent = '✓ ' + t('srv_pushed'); $('calib-stat').className = 'stat ok';
+    refreshCalibSrvMeta();
+  } catch (e){ $('calib-stat').textContent = t('srv_err') + ': ' + e.message; $('calib-stat').className = 'stat err'; }
+});
+$('calib-pull').addEventListener('click', async () => {
+  $('calib-stat').textContent = '…'; $('calib-stat').className = 'stat';
+  try {
+    const r = await fetch(SRV + '?calib=1&t=' + Date.now());
+    const j = await r.json();
+    if (!j.calib || !Object.keys(j.calib).length){
+      $('calib-stat').textContent = t('srv_empty'); $('calib-stat').className = 'stat warn'; return;
+    }
+    calib = j.calib; saveCalib();
+    $('calib-stat').textContent = '✓ ' + t('srv_pulled') + (j.updated ? ' (' + j.updated + ')' : '');
+    $('calib-stat').className = 'stat ok';
+  } catch (e){ $('calib-stat').textContent = t('srv_err') + ': ' + e.message; $('calib-stat').className = 'stat err'; }
+});
+async function refreshCalibSrvMeta(){
+  const meta = $('calib-srv-meta'); if (!meta) return;
+  try {
+    const r = await fetch(SRV + '?calib=1&t=' + Date.now());
+    const j = await r.json();
+    meta.textContent = j.updated ? (t('srv_updated') + j.updated) : t('srv_empty');
+  } catch { meta.textContent = ''; }
+}
+refreshCalibSrvMeta();
+$('reset-mm').addEventListener('click', () => { mmMin=Infinity; mmMax=0; $('t-mm').textContent='—/—'; });
+document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => {
+  if (lastVOn != null) parseLine(`ON=${lastVOn.toString(2).padStart(8,'0')}  OFF=00000000  dec=${lastVOn}  P=0`);
+}));
+{ const sf = localStorage.getItem('speed_factor'); if (sf) $('speed-factor').value = sf; }
+$('speed-factor').addEventListener('change', () => localStorage.setItem('speed_factor', $('speed-factor').value));
+
+/* periodic UI: rate, age. Some IDs only exist on certain tabs — null-guard. */
+setInterval(() => {
+  const dt = (Date.now() - lastRateUpdate) / 1000;
+  const r = (rxCount / dt).toFixed(1);
+  if ($('t-rate'))   $('t-rate').textContent   = r;
+  if ($('t-rate2'))  $('t-rate2').textContent  = r;
+  if ($('rawstat'))  $('rawstat').textContent  = `· ${rxCount} lines/${dt.toFixed(0)}s`;
+  rxCount = 0; lastRateUpdate = Date.now();
+  if ($('t-age'))    $('t-age').textContent    = lastSampleTs ? ((Date.now() - lastSampleTs)/1000).toFixed(1) + 's' : '—';
+}, 2000);
+
+renderCalibGrid();
+applyI18n();
+
+/* ---- Source switch (Serial vs GSM) ---- */
+let activeSrc = localStorage.getItem('src') || 'serial';
+let gsmTimer = null;
+function setSource(src){
+  activeSrc = src;
+  localStorage.setItem('src', src);
+  $('src-serial').classList.toggle('active', src === 'serial');
+  $('src-gsm').classList.toggle('active', src === 'gsm');
+  $('serial-ctl').style.display = src === 'serial' ? 'flex' : 'none';
+  $('gsm-ctl').style.display    = src === 'gsm'    ? 'flex' : 'none';
+  if (src === 'gsm'){
+    if (keepReading) disconnect();
+    startGsmPoll();
+  } else {
+    stopGsmPoll();
+  }
+}
+$('src-serial').addEventListener('click', () => setSource('serial'));
+$('src-gsm').addEventListener('click',    () => setSource('gsm'));
+
+async function fjson(url){
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+async function gsmPoll(){
+  try {
+    const live = await fjson(SRV + '?live_now=1&t=' + Date.now());
+    if (live.ok){
+      renderGsmSnapshot(live);
+      $('dot').className = 'dot on';
+      $('status').textContent = 'GSM live · age ' + live.age_sec + 's';
+      $('conn-stat').textContent = '✓ GSM streaming'; $('conn-stat').className = 'stat ok';
+    } else {
+      $('conn-stat').textContent = live.reason || 'no live data'; $('conn-stat').className = 'stat';
+    }
+  } catch (e){
+    $('conn-stat').textContent = 'GSM err: ' + e.message; $('conn-stat').className = 'stat err';
+  }
+}
+function startGsmPoll(){ stopGsmPoll(); gsmPoll(); gsmTimer = setInterval(gsmPoll, 2000); }
+function stopGsmPoll(){ if (gsmTimer){ clearInterval(gsmTimer); gsmTimer = null; } }
+
+$('gsm-live-on').addEventListener('click', async () => {
+  try { await fjson(SRV + '?set_live=1&t=' + Date.now()); $('conn-stat').textContent = '✓ live=1 set'; $('conn-stat').className='stat ok'; }
+  catch (e){ $('conn-stat').textContent = 'err: ' + e.message; $('conn-stat').className='stat err'; }
+});
+$('gsm-live-off').addEventListener('click', async () => {
+  try { await fjson(SRV + '?set_live=0&t=' + Date.now()); $('conn-stat').textContent = '✓ live=0 set'; $('conn-stat').className='stat ok'; }
+  catch (e){ $('conn-stat').textContent = 'err: ' + e.message; $('conn-stat').className='stat err'; }
+});
+
+setSource(activeSrc);
+
+/* Fullscreen on every card + gauge-card */
+function makeFullscreenable(el){
+  if (el.querySelector('.fs-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'fs-btn'; btn.innerHTML = '⛶'; btn.title = 'Fullscreen';
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const cur = document.querySelector('.card.fs, .gauge-card.fs');
+    if (cur && cur !== el){ cur.classList.remove('fs'); cur.querySelector('.fs-btn').innerHTML = '⛶'; }
+    el.classList.toggle('fs');
+    btn.innerHTML = el.classList.contains('fs') ? '✕' : '⛶';
+    document.body.classList.toggle('has-fs', !!document.querySelector('.card.fs, .gauge-card.fs'));
+  });
+  el.appendChild(btn);
+}
+document.querySelectorAll('.card, .gauge-card').forEach(makeFullscreenable);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape'){
+    const cur = document.querySelector('.card.fs, .gauge-card.fs');
+    if (cur){ cur.classList.remove('fs'); cur.querySelector('.fs-btn').innerHTML = '⛶'; document.body.classList.remove('has-fs'); }
+  }
+});
+</script>
+</body>
+</html>
