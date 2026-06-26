@@ -711,7 +711,9 @@ function renderStatus(){
   }
 
   /* raw config */
-  $('st-raw-config').textContent = lastConfig ? JSON.stringify(lastConfig, null, 2) : '—';
+  $('st-raw-config').innerHTML = lastConfig
+    ? Object.entries(lastConfig).map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v === null ? '—' : v}</span></div>`).join('')
+    : '—';
 
   renderPending();
 }

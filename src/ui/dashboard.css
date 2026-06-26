@@ -290,6 +290,11 @@ body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
 .field-help{font-size:12px;color:var(--mut);margin-top:2px}
 .field-err{font-size:12px;color:var(--err);margin-top:2px}
 .set-note{font-size:11px;color:var(--mut);margin:2px 0 0}
+.kv-list{display:flex;flex-direction:column;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 10px;font-size:12px}
+.kv:nth-child(even){background:rgba(127,127,127,.05)}
+.kv .k{color:var(--mut)}
+.kv .v{font-family:ui-monospace,monospace;color:var(--fg);text-align:right;word-break:break-all}
 .card-actions{display:flex;gap:8px;margin-top:14px}
 .card-actions .btn{flex:1;min-height:48px;font-size:15px;padding:12px;justify-content:center;display:inline-flex;align-items:center;gap:6px;border-radius:7px}
 .al-type{display:flex;flex-direction:column;gap:7px;padding:10px 0;font-size:13px;border-bottom:1px solid var(--line)}
