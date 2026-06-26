@@ -2,7 +2,7 @@
 namespace Stelnet\Html\MeteoStation;
 
 /* Thin bootstrap for the stelnet host — the ONLY file the web dir lets us overwrite.
- * The actual app is the Meteo\* library (src/Meteo/*.php), the UI, and config.php — all of
+ * The actual app is the Meteo\* library (backend/*.php), the UI, and config.php — all of
  * which live in FILE_DIR (a world-writable dir; the web root can't take new files). deploy.sh
  * pushes them via ?edit&file=...[&src]; this file autoloads + runs them. See README / deploy.sh.
  *

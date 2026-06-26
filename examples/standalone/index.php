@@ -2,11 +2,11 @@
 /* Standalone MeteoStation server for a normal PHP host (one that can serve static files +
  * create files). Point the firmware's SERVER_URL at this directory. See README.md.
  *
- * The whole app is the Meteo\* library in ../../src; this file just wires paths + secrets. */
+ * The whole app is the Meteo\* library in ../../backend; this file just wires paths + secrets. */
 
 spl_autoload_register(function ($class) {
     if (strncmp($class, 'Meteo\\', 6) !== 0) return;
-    $f = __DIR__ . '/../../src/Meteo/' . str_replace('\\', '/', substr($class, 6)) . '.php';
+    $f = __DIR__ . '/../../backend/' . str_replace('\\', '/', substr($class, 6)) . '.php';
     if (is_file($f)) require $f;
 });
 

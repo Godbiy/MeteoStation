@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy MeteoStation (no build). Pushes the library (src/Meteo/*.php), the UI, and config
+# Deploy MeteoStation (no build). Pushes the backend (backend/*.php), the UI, and config
 # into the host's FILE_DIR, then the thin bootstrap to the self-edit endpoint. Re-run after
 # any edit (or push a single file by hand with ?edit=1&file=NAME[&src]).
 #
@@ -14,17 +14,17 @@ KEY=$(sed -n "s/.*'EDIT_KEY' *=> *'\([^']*\)'.*/\1/p" server/config.php)
 [ -n "$KEY" ] || { echo "no EDIT_KEY in server/config.php (copy config.example.php)"; exit 1; }
 H="Content-Type: application/x-php"
 
-# push <local-file> [query]   e.g. push src/Meteo/Server.php "file=Server.php&src"
+# push <local-file> [query]   e.g. push backend/Server.php "file=Server.php&src"
 push() { curl -s -X POST -H "$H" --data-binary "@$1" "$URL?edit=1${2:+&$2}&key=$KEY" -w "  [%{http_code}]\n"; }
 
-echo "== library (src/Meteo -> FILE_DIR/src/Meteo) =="
-for f in src/Meteo/*.php; do n=$(basename "$f"); printf '  %-14s' "$n"; push "$f" "file=$n&src"; done
+echo "== backend (backend/*.php -> FILE_DIR/src/Meteo) =="
+for f in backend/*.php; do n=$(basename "$f"); printf '  %-22s' "$n"; push "$f" "file=$n&src"; done
 
 echo "== UI parts + assets (-> FILE_DIR, flat) =="
 # The shell/css/js are split into sortable fragments (page.NN.*.html, app.NN.*.css/js)
 # that Ui.php assembles on serve. The ?edit endpoint writes flat (basename only), so the
 # part names are flat + globbable. sw.js + manifest.json are whole files.
-for f in src/ui/html/* src/ui/css/* src/ui/js/* src/ui/sw.js src/ui/manifest.json; do
+for f in frontend/html/* frontend/css/* frontend/js/* frontend/sw.js frontend/manifest.json; do
   n=$(basename "$f"); printf '  %-22s' "$n"; push "$f" "file=$n"
 done
 printf '  %-22s' config.php; push server/config.php "file=config.php"

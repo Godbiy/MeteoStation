@@ -9,10 +9,10 @@ alerts.
 ## Repo layout
 
 ```
-src/Meteo/       PHP library, one class per file: Server (pure router), Api (station POST +
+backend/         PHP library, one class per file: Server (pure router), Api (station POST +
                  history/config), Store (persistence), Payload (binary decode + CRC),
-                 WebPush (VAPID), Ui (dashboard/PWA), Admin (edit).
-src/ui/          Frontend split into one-concern-per-file fragments the server ASSEMBLES on
+                 WebPush (VAPID), Ui (dashboard/PWA), Admin (edit). namespace Meteo.
+frontend/        UI split into one-concern-per-file fragments the server ASSEMBLES on
                  serve (no build): html/page.NN.*.html (shell), css/app.NN.*.css, js/app.NN.*.js,
                  plus sw.js, manifest.json. Served via ?ui=1 / ?asset=NAME / ?sw=1 / ?manifest=1
 firmware/        AVR firmware (C). main.c = non-blocking state machine; gsm.c, sensor.c,
@@ -53,7 +53,7 @@ Key flags in `firmware/config.h`: `FAST_TEST_MODE`, `DEBUG_SENSOR_ONLY`, `DEBUG_
 
 ## Server — deploy
 
-The backend is the `Meteo\*` library in [`src/Meteo`](src/Meteo). There is **no build step**.
+The backend is the `Meteo\*` library in [`backend`](backend). There is **no build step**.
 On the stelnet host, `server/meteo.php` is a thin bootstrap that autoloads the library from
 `FILE_DIR/src/Meteo` and runs it; the library, UI, and secrets are served from `FILE_DIR` at
 runtime (the web root can't take new files). For a normal host, see
@@ -72,8 +72,8 @@ cp server/config.example.php server/config.php      # then edit EDIT_KEY + VAPID
 ```
 
 `deploy.sh` reads `EDIT_KEY` from `config.php` and POSTs each file to the self-edit endpoint:
-`meteo.php` overwrites itself (`?edit=1`, `php -l` + `.bak`); the library (`src/Meteo/*.php`),
-UI, and `config.php` go into `FILE_DIR` (`?edit=1&file=NAME[&src]`) and are read at runtime
+`meteo.php` overwrites itself (`?edit=1`, `php -l` + `.bak`); the backend (`backend/*.php` →
+FILE_DIR/src/Meteo), UI, and `config.php` go into `FILE_DIR` (`?edit=1&file=NAME[&src]`) and are read at runtime
 (`?ui=1` serves the dashboard, secrets via `require`, classes via the bootstrap's autoloader).
 Edit a file → re-run `deploy.sh`. The service worker pre-caches the dashboard so the app works
 offline. Verify: `?config=1`, `?ui=1`, `?push_selftest=1` (`roundtrip:OK`).

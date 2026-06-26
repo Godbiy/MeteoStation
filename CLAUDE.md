@@ -12,8 +12,9 @@ Fuses (low-power, BOD disabled):
 ## Repo layout
 
 ```
-src/Meteo/  PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin (namespace Meteo).
-src/ui/     Frontend in sortable fragments the server ASSEMBLES (no build): html/page.NN.*.html
+backend/    PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin
+            (namespace Meteo; deployed to FILE_DIR/src/Meteo on the host, see deploy.sh).
+frontend/   UI in sortable fragments the server ASSEMBLES (no build): html/page.NN.*.html
             -> shell (?ui=1); css/app.NN.*.css -> ?asset=dashboard.css; js/app.NN.*.js ->
             ?asset=dashboard.js. Plus sw.js + manifest.json. Calib is a tab.
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
@@ -46,7 +47,7 @@ to watch the state machine / AT trace live.
 
 ## Server / Dashboard (PHP + HTML)
 
-The backend is the **`Meteo\*` library** in `src/Meteo/` (one class per file): `Server` (pure
+The backend is the **`Meteo\*` library** in `backend/` (one class per file): `Server` (pure
 router), `Api` (station POST + history/config API), `Store` (all file IO), `Payload` (binary
 decode + CRC), `WebPush` (VAPID), `Ui` (dashboard/serial/PWA), `Admin` (key-gated edit/restore/wipe).
 
