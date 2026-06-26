@@ -25,16 +25,22 @@ self.addEventListener('fetch', e => {
   const isAsset = url.searchParams.has('asset');
   if (!isShell && !isAsset) return;   /* data endpoints pass through; app falls back to IndexedDB offline */
   const key = isShell ? 'shell' : ('?asset=' + url.searchParams.get('asset'));
-  /* stale-while-revalidate: serve cache INSTANTLY (works offline), refresh in the background. */
+  /* network-FIRST: always try the live server so a deploy shows up on the very next
+   * open (the old stale-while-revalidate served cache first → changes lagged a launch).
+   * Cache is refreshed on every success and used only as the offline fallback. */
   e.respondWith((async () => {
     const c = await caches.open(C);
-    const cached = await c.match(key);
-    const net = fetch(req).then(r => { if (r && r.ok) c.put(key, r.clone()); return r; }).catch(() => null);
-    if (cached) return cached;
-    return (await net) || (isShell ? new Response(
-      '<!doctype html><meta charset=utf-8><body style="font:16px sans-serif;background:#0d1117;color:#e6edf3;padding:24px">'
-      + '\u{1F4E1} Офлайн, а кеш ще порожній.<br>Відкрий застосунок раз з інтернетом — далі працюватиме й офлайн.</body>',
-      { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }) : Response.error());
+    try {
+      const net = await fetch(req, { cache: 'reload' });
+      if (net && net.ok) { c.put(key, net.clone()); return net; }
+      throw new Error('bad status ' + (net && net.status));
+    } catch (_) {
+      const cached = await c.match(key);
+      return cached || (isShell ? new Response(
+        '<!doctype html><meta charset=utf-8><body style="font:16px sans-serif;background:#0d1117;color:#e6edf3;padding:24px">'
+        + '\u{1F4E1} Офлайн, а кеш ще порожній.<br>Відкрий застосунок раз з інтернетом — далі працюватиме й офлайн.</body>',
+        { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }) : Response.error());
+    }
   })());
 });
 self.addEventListener('push', e => {
