@@ -282,14 +282,14 @@ function applyTheme(){
   document.body.classList.toggle('sunlight', THEME === 'sunlight');
   const tb = document.getElementById('theme-toggle');
   if (tb) tb.innerHTML = icSvg(THEME === 'sunlight' ? 'ic-moon' : 'ic-sun');
-  document.querySelectorAll('.seg-btn[data-theme]').forEach(b => b.classList.toggle('active', b.dataset.theme === THEME));
+  const tsw = document.getElementById('theme-sw'); if (tsw) tsw.checked = (THEME === 'sunlight');
 }
 function setTheme(name){ THEME = name; localStorage.setItem('theme', THEME); applyTheme(); }
 applyTheme();
 document.getElementById('theme-toggle')?.addEventListener('click', () => setTheme(THEME === 'sunlight' ? 'dark' : 'sunlight'));
-document.querySelectorAll('.seg-btn[data-theme]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.theme)));
-/* Settings test-mode button mirrors the header toggle */
-document.getElementById('test-toggle-2')?.addEventListener('click', () => document.getElementById('test-toggle')?.click());
+document.getElementById('theme-sw')?.addEventListener('change', e => setTheme(e.target.checked ? 'sunlight' : 'dark'));
+/* Settings test-mode switch mirrors the header toggle */
+document.getElementById('test-toggle-2')?.addEventListener('change', () => document.getElementById('test-toggle')?.click());
 
 /* ===== Lite mode (2G data saver): slow poll + no hourly curve backfill + hide charts ===== */
 let LITE = localStorage.getItem('lite') === '1';
@@ -339,11 +339,11 @@ let ALERTS = (() => {
 })();
 function applyLite(){
   document.body.classList.toggle('lite', LITE);
-  document.querySelectorAll('.seg-btn[data-lite]').forEach(b => b.classList.toggle('active', (b.dataset.lite === '1') === LITE));
+  const lsw = document.getElementById('lite-sw'); if (lsw) lsw.checked = LITE;
 }
 function setLite(on){ LITE = !!on; localStorage.setItem('lite', LITE ? '1' : '0'); applyLite(); if (typeof startPoll === 'function') startPoll(); }
 applyLite();
-document.querySelectorAll('.seg-btn[data-lite]').forEach(b => b.addEventListener('click', () => setLite(b.dataset.lite === '1')));
+document.getElementById('lite-sw')?.addEventListener('change', e => setLite(e.target.checked));
 /* full sync on demand: poll + force the last-hour curve backfill (even in Lite) +
  * refresh history if open. The header spinner shows automatically via fjson. */
 async function syncNow(){
@@ -3630,7 +3630,7 @@ $('test-toggle').addEventListener('click', () => {
   $('test-banner').classList.toggle('on', testMode);
   $('test-toggle').classList.toggle('active', testMode);
   $('test-toggle').textContent = testMode ? '🧪 Test ON' : '🧪 Test';
-  $('test-toggle-2')?.classList.toggle('active', testMode);   /* settings toggle reflects the on/off state */
+  { const t2 = $('test-toggle-2'); if (t2) t2.checked = testMode; }   /* settings switch reflects the on/off state */
   if (testMode){
     stopPoll();
     tickIdx = 0;

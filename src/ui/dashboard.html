@@ -418,11 +418,12 @@
 <div class="page" id="page-settings">
   <div class="card">
     <h2 data-i18n="appearance">🎨 Вигляд</h2>
-    <div class="set-row">
+    <div class="set-row toggle">
       <span class="set-lbl" data-i18n="theme">Тема</span>
-      <div class="seg">
-        <button class="seg-btn" data-theme="dark"><svg class="ic"><use href="#ic-moon"/></svg> <span data-i18n="theme_dark">Темна</span></button>
-        <button class="seg-btn" data-theme="sunlight"><svg class="ic"><use href="#ic-sun"/></svg> <span data-i18n="theme_sun">Сонячна</span></button>
+      <div class="sw-wrap">
+        <svg class="ic sw-ico moon"><use href="#ic-moon"/></svg>
+        <label class="switch"><input type="checkbox" id="theme-sw"><span class="track"><span class="knob"></span></span></label>
+        <svg class="ic sw-ico sun"><use href="#ic-sun"/></svg>
       </div>
     </div>
     <div class="set-row">
@@ -442,18 +443,19 @@
         <option value="-5">UTC-5</option><option value="-8">UTC-8</option>
       </select>
     </div>
-    <div class="set-row">
+    <div class="set-row toggle">
       <span class="set-lbl" data-i18n="test_mode">🧪 Тест-режим</span>
-      <div class="seg"><button id="test-toggle-2" class="seg-btn" data-i18n="test_toggle_btn">Увімкнути / вимкнути</button></div>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="test-toggle-2"><span class="track"><span class="knob"></span></span></label>
+      </div>
     </div>
   </div>
   <div class="card">
     <h2 data-i18n="data_2g">📶 2G / дані</h2>
-    <div class="set-row">
+    <div class="set-row toggle">
       <span class="set-lbl" data-i18n="lite_mode">Lite-режим</span>
-      <div class="seg">
-        <button class="seg-btn" data-lite="0" data-i18n="lite_full">Повний</button>
-        <button class="seg-btn" data-lite="1" data-i18n="lite_on">Lite</button>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="lite-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
     <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="lite_hint">Lite: повільний поллінг (60с), без щогодинного завантаження кривої — мінімум трафіку на 2G.</div>
