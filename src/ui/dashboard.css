@@ -290,11 +290,14 @@ body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
 .set-note{font-size:11px;color:var(--mut);margin:2px 0 0}
 .card-actions{display:flex;gap:8px;margin-top:14px}
 .card-actions .btn{flex:1;min-height:48px;font-size:15px;padding:12px;justify-content:center;display:inline-flex;align-items:center;gap:6px;border-radius:7px}
-.al-type{display:flex;align-items:center;gap:9px;min-height:40px;font-size:13px;flex-wrap:wrap}
-.al-type>span{flex:1 1 auto}
-.al-type input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;accent-color:var(--accent)}
-.al-type input[type=number]{min-height:40px;font-size:14px;width:84px;text-align:right;flex:0 0 auto}
-.al-type .unit{font-size:12px;color:var(--mut);min-width:30px}
+.al-type{display:flex;flex-direction:column;gap:7px;padding:10px 0;font-size:13px;border-bottom:1px solid var(--line)}
+.al-type:last-child{border-bottom:none}
+.al-head{display:flex;align-items:center;gap:9px;cursor:pointer}
+.al-head>span{font-weight:600;color:var(--fg)}
+.al-head input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;accent-color:var(--accent)}
+.al-type .ctl{display:flex;align-items:center;width:100%;border:1px solid var(--line);background:var(--panel2);border-radius:5px;padding-right:10px}
+.al-type .ctl input[type=number]{border:none;background:transparent;flex:1 1 auto;width:auto;min-height:40px;font-size:14px;text-align:left;padding:6px 8px}
+.al-type .ctl .unit{font-size:12px;color:var(--mut);min-width:30px;text-align:right}
 .dev-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:7px}
 .dev-row.me{border-color:var(--accent)}
 .dev-row .dev-meta{flex:1 1 auto;min-width:0}

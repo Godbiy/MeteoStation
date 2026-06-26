@@ -529,13 +529,29 @@
         <button class="seg-btn" id="al-on-btn" data-i18n="on_btn">Увімк</button>
       </div>
     </div>
-    <div id="al-types" style="display:flex;flex-direction:column;gap:4px">
-      <label class="al-type"><input type="checkbox" data-al="battLow"><span data-i18n="alert_batt_lbl">Батарея низька &lt;</span><input type="number" data-th="battLow" step="50" min="2000" max="4200"><span class="unit">mV</span></label>
-      <label class="al-type"><input type="checkbox" data-al="battCrit"><span data-i18n="alert_crit_lbl">Батарея критична &lt;</span><input type="number" data-th="battCrit" step="50" min="2000" max="4200"><span class="unit">mV</span></label>
-      <label class="al-type"><input type="checkbox" data-al="windHigh"><span data-i18n="alert_wind_lbl">Вітер &gt;</span><input type="number" data-th="windHigh" step="1" min="0"><span class="unit" id="al-wind-unit">km/h</span></label>
-      <label class="al-type"><input type="checkbox" data-al="solar"><span data-i18n="alert_solar_lbl">Заряд / сонце (старт, стоп, повна)</span></label>
-      <label class="al-type"><input type="checkbox" data-al="offline"><span data-i18n="alert_offline_lbl">Офлайн (нема даних) &gt;</span><input type="number" data-th="offline" step="5" min="5"><span class="unit" data-i18n="minutes">хв</span></label>
-      <label class="al-type"><input type="checkbox" data-al="online"><span data-i18n="alert_online_lbl">Знов онлайн (відновився)</span></label>
+    <div id="al-types" style="display:flex;flex-direction:column">
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="battLow"><span data-i18n="alert_batt_lbl">Батарея низька &lt;</span></label>
+        <div class="ctl"><input type="number" data-th="battLow" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="battCrit"><span data-i18n="alert_crit_lbl">Батарея критична &lt;</span></label>
+        <div class="ctl"><input type="number" data-th="battCrit" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="windHigh"><span data-i18n="alert_wind_lbl">Вітер &gt;</span></label>
+        <div class="ctl"><input type="number" data-th="windHigh" step="1" min="0"><span class="unit" id="al-wind-unit">km/h</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="solar"><span data-i18n="alert_solar_lbl">Заряд / сонце (старт, стоп, повна)</span></label>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="offline"><span data-i18n="alert_offline_lbl">Офлайн (нема даних) &gt;</span></label>
+        <div class="ctl"><input type="number" data-th="offline" step="5" min="5"><span class="unit" data-i18n="minutes">хв</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="online"><span data-i18n="alert_online_lbl">Знов онлайн (відновився)</span></label>
+      </div>
     </div>
     <div class="card-actions">
       <button id="al-apply" class="btn primary" data-i18n="apply">Застосувати</button>
