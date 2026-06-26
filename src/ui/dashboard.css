@@ -1,5 +1,5 @@
 :root{--bg:#0d1117;--panel:#161b22;--panel2:#0d1117;--fg:#e6edf3;--mut:#7d8590;--line:#30363d;
-      --ok:#3fb950;--warn:#d29922;--err:#f85149;--accent:#58a6ff;--purple:#bc8cff;
+      --ok:#3fb950;--warn:#d29922;--err:#f85149;--accent:#58a6ff;--field:#0d1117;--purple:#bc8cff;
       --hover:#212b38;--ease:cubic-bezier(.22,.61,.36,1);--dur:.16s;
       --card-shadow:0 1px 3px rgba(0,0,0,.28);
       color-scheme:dark}
@@ -101,7 +101,8 @@ body.has-fs{overflow:hidden}
 .sparkline{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:8px;margin-top:6px}
 .sparkline .ttl{font-size:11px;color:var(--mut);display:flex;justify-content:space-between}
 
-select,input[type=number],input[type=text],input[type=date]{background:var(--panel2);color:var(--fg);border:1px solid var(--line);padding:6px 8px;border-radius:5px;font:inherit;font-size:13px}
+select,input[type=number],input[type=text],input[type=date]{background:var(--field);color:var(--fg);border:1px solid var(--line);padding:6px 8px;border-radius:5px;font:inherit;font-size:13px}
+select:focus,input[type=number]:focus,input[type=text]:focus,input[type=date]:focus{outline:none;border-color:var(--accent)}
 input[type=number]{width:104px;text-align:right;-moz-appearance:textfield}   /* one width for all number inputs */
 input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}   /* drop the browser spinners */
 /* Custom select: drop the native arrow, draw our own chevron (themed via --mut) for a consistent look. */
@@ -240,7 +241,7 @@ body.lite .lite-badge{display:inline-block}
 /* ===== Sunlight: high-contrast LIGHT theme for reading in direct sun ===== */
 body.sunlight{
   color-scheme:light;   /* native calendar / select dropdown / inputs follow the light theme */
-  --bg:#e6eaef;--panel:#ffffff;--panel2:#eef1f5;--fg:#0a0c10;--mut:#4b535c;--line:#c2cad3;
+  --bg:#e6eaef;--panel:#ffffff;--panel2:#eef1f5;--fg:#0a0c10;--mut:#4b535c;--line:#c2cad3;--field:#fff;
   --ok:#1a7f37;--warn:#8a6500;--err:#cf222e;--accent:#0969da;--purple:#8250df;
   --hover:#e4e9ef;--card-shadow:0 1px 3px rgba(140,150,165,.5);
 }
@@ -278,7 +279,8 @@ body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
 .set-field .ctl{display:flex;align-items:center;gap:6px;width:100%}
 .set-field .ctl .unit{font-size:12px;color:var(--mut);min-width:32px;text-align:right}
 /* input + unit read as one control (the unit sits inside the field, not floating beside it) */
-.set-field .ctl:has(.unit){border:1px solid var(--line);background:var(--panel2);border-radius:5px;gap:0;padding-right:10px;width:100%}
+.set-field .ctl:has(.unit){border:1px solid var(--line);background:var(--field);border-radius:5px;gap:0;padding-right:10px;width:100%}
+.set-field .ctl:has(.unit):focus-within{border-color:var(--accent)}
 .set-field .ctl:has(.unit) input[type=number]{border:none;background:transparent;flex:1 1 auto;width:auto;text-align:left}
 .set-field input[type=number]{min-height:44px;font-size:15px;width:100%;text-align:left}
 .set-field .ctl select,.set-field select{min-height:44px;font-size:15px;width:100%}
@@ -295,7 +297,8 @@ body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
 .al-head{display:flex;align-items:center;gap:9px;cursor:pointer}
 .al-head>span{font-weight:600;color:var(--fg)}
 .al-head input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;accent-color:var(--accent)}
-.al-type .ctl{display:flex;align-items:center;width:100%;border:1px solid var(--line);background:var(--panel2);border-radius:5px;padding-right:10px}
+.al-type .ctl{display:flex;align-items:center;width:100%;border:1px solid var(--line);background:var(--field);border-radius:5px;padding-right:10px}
+.al-type .ctl:focus-within{border-color:var(--accent)}
 .al-type .ctl input[type=number]{border:none;background:transparent;flex:1 1 auto;width:auto;min-height:40px;font-size:14px;text-align:left;padding:6px 8px}
 .al-type .ctl .unit{font-size:12px;color:var(--mut);min-width:30px;text-align:right}
 .dev-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:7px}
