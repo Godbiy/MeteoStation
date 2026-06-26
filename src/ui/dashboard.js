@@ -3401,6 +3401,10 @@ function drawHeatmap(pts){
       const i = ks.indexOf(hmSelectedDay);
       if (i >= 0 && i < ks.length - 1){ hmSelectedDay = ks[i+1]; drawHistoryCharts(); }
     });
+    $('hm-today')?.addEventListener('click', () => {
+      const ks = Object.keys(hmDaysData).sort();
+      if (ks.length){ hmSelectedDay = ks[ks.length-1]; drawHistoryCharts(); }   /* jump to the latest day */
+    });
   }
   const H = 180;
   const W = chartW(svg, 600);
