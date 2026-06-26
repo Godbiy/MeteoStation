@@ -27,6 +27,23 @@ final class Ui
         echo str_replace(['__BUILD_VER__', '__EDIT_KEY__'], [$ver, $this->editKey], (string)file_get_contents($f));
     }
 
+    /* GET ?asset=NAME -- serve a split UI asset (dashboard.js / dashboard.css) from FILE_DIR,
+     * with the same token fill-in as the shell. no-cache; the service worker precaches these
+     * for offline. */
+    public function handleAsset(): void
+    {
+        $name = basename((string)($_GET['asset'] ?? ''));
+        if (!preg_match('/^[A-Za-z0-9_.-]+\.(js|css|json)$/', $name)) { http_response_code(400); echo "bad asset"; return; }
+        $f = $this->fileDir . '/' . $name;
+        if (!is_file($f)) { http_response_code(404); echo "not found: $name"; return; }
+        $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $type = ['js' => 'text/javascript', 'css' => 'text/css', 'json' => 'application/json'][$ext] ?? 'text/plain';
+        header('Content-Type: ' . $type . '; charset=utf-8');
+        header('Cache-Control: no-cache');
+        $ver = gmdate('Y-m-d H:i', @filemtime($f) ?: time()) . ' UTC';
+        echo str_replace(['__BUILD_VER__', '__EDIT_KEY__'], [$ver, $this->editKey], (string)file_get_contents($f));
+    }
+
     /* GET ?dl_html=1 -- serve the deployed dashboard HTML as a downloadable file. */
     public function handleDownloadHtml(): void
     {

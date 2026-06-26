@@ -13,7 +13,7 @@ Fuses (low-power, BOD disabled):
 
 ```
 src/Meteo/  PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin (namespace Meteo).
-src/dashboard.html  operator UI, single page (serial/GSM vane calibration is a native tab).
+src/ui/     dashboard.{html,css,js} (split) + sw.js + manifest.json — served from disk; calib is a tab.
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
             firmware/probes/ = bring-up sketches (gitignored)
 server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, config.example.php
