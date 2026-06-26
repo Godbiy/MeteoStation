@@ -2077,7 +2077,7 @@ async function refreshServerCalibMeta(){
  * (getCalib/setCalib) + readonly table — one page, no separate UI. */
 let capPort = null, capReader = null, capKeep = false, capLineBuf = '';
 let capByte = null, capSrc = 'serial', capGsmTimer = null;
-let capRawLines = [], capRxCount = 0, capRxT0 = 0;
+let capRawLines = [], capRxCount = 0, capRxT0 = 0, capLastGsmTs = null;
 const CAP_RAW_MAX = 200;
 /* Append a line to the calibration Raw-stream log (newest first, capped). */
 function capLogRaw(line){
@@ -2169,7 +2169,8 @@ async function capGsmPoll(){
   try {
     const j = await fjson(SRV + '?live_now=1&t=' + Date.now());
     if (j && j.ok){ capByte = (j.vane_on ?? j.vane ?? null); capRenderByte();
-      capLogRaw(`[GSM] ${j.timestamp||'?'} vane=${j.vane_on ?? j.vane} pps=${j.pulses_sec} batt=${j.batt_mv}mV csq=${j.csq} age=${j.age_sec}s`); }
+      if (j.timestamp !== capLastGsmTs){ capLastGsmTs = j.timestamp;   /* only log a genuinely new snapshot, not the same one every 2s */
+        capLogRaw(`[GSM] ${j.timestamp||'?'} vane=${j.vane_on ?? j.vane} pps=${j.pulses_sec} batt=${j.batt_mv}mV csq=${j.csq} age=${j.age_sec}s`); } }
   } catch {}
 }
 function capStopGsm(){ if (capGsmTimer){ clearInterval(capGsmTimer); capGsmTimer = null; } }
