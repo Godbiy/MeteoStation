@@ -14,9 +14,9 @@ Fuses (low-power, BOD disabled):
 ```
 backend/    PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin
             (namespace Meteo; deployed to FILE_DIR/src/Meteo on the host, see deploy.sh).
-frontend/   UI in sortable fragments the server ASSEMBLES (no build): html/page.NN.*.html
-            -> shell (?ui=1); css/app.NN.*.css -> ?asset=dashboard.css; js/app.NN.*.js ->
-            ?asset=dashboard.js. Plus sw.js + manifest.json. Calib is a tab.
+frontend/   UI in named fragments the server CONCATENATES (no build) in an explicit order
+            (Ui::ORDER): html/*.html -> shell (?ui=1); css/*.css -> ?asset=dashboard.css;
+            js/*.js -> ?asset=dashboard.js. Plus sw.js + manifest.json. Calib is a tab.
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
             firmware/probes/ = bring-up sketches (gitignored)
 server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, config.example.php

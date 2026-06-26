@@ -21,9 +21,9 @@ echo "== backend (backend/*.php -> FILE_DIR/src/Meteo) =="
 for f in backend/*.php; do n=$(basename "$f"); printf '  %-22s' "$n"; push "$f" "file=$n&src"; done
 
 echo "== UI parts + assets (-> FILE_DIR, flat) =="
-# The shell/css/js are split into sortable fragments (page.NN.*.html, app.NN.*.css/js)
-# that Ui.php assembles on serve. The ?edit endpoint writes flat (basename only), so the
-# part names are flat + globbable. sw.js + manifest.json are whole files.
+# The shell/css/js are split into named fragments (frontend/{html,css,js}/) that Ui.php
+# concatenates on serve in an explicit order (see Ui::ORDER). The ?edit endpoint writes
+# flat (basename only), so each fragment lands flat in FILE_DIR. sw.js + manifest are whole.
 for f in frontend/html/* frontend/css/* frontend/js/* frontend/sw.js frontend/manifest.json; do
   n=$(basename "$f"); printf '  %-22s' "$n"; push "$f" "file=$n"
 done

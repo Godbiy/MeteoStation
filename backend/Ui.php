@@ -14,34 +14,46 @@ final class Ui
         $this->editKey = ($cfg['EDIT_KEY'] ?? '') ?: "\0";
     }
 
-    /* The UI is kept on disk as SPLIT, name-sorted fragments (one concern per file), the same
-     * way the PHP library is one-class-per-file. There's no build step: the server ASSEMBLES
-     * them on each request. The web root can't hold sub-dirs (the ?edit endpoint writes flat,
-     * basename-only), so the parts are flat with sortable names:
-     *   page.NN.*.html  -> the dashboard shell      (?ui=1)
-     *   app.NN.*.css    -> ?asset=dashboard.css
-     *   app.NN.*.js     -> ?asset=dashboard.js
-     * glob()+sort() concatenation is byte-identical to the old monolith, so behaviour is
-     * unchanged. Everything is served no-store (assembled fresh every time → no stale cache;
-     * the network-first service worker keeps a copy only as the offline fallback). */
-    private const PARTS = ['html' => 'page.*.html', 'css' => 'app.*.css', 'js' => 'app.*.js'];
+    /* The UI is kept on disk as SPLIT fragments (one concern per file), the same way the PHP
+     * library is one-class-per-file. There's no build step: the server CONCATENATES them on
+     * each request. The fragments have clean, number-free names, so load order can't come from
+     * sorting — it's declared explicitly here, the one place it belongs (like a bundler's entry
+     * list). The web root can't hold sub-dirs (the ?edit endpoint writes flat), so on the host
+     * the files are flat by basename; ORDER lists those basenames in load order:
+     *   ORDER['html'] -> the dashboard shell   (?ui=1)
+     *   ORDER['css']  -> ?asset=dashboard.css
+     *   ORDER['js']   -> ?asset=dashboard.js
+     * Concatenation is byte-identical to the old monolith. Everything is served no-store
+     * (assembled fresh every time → no stale cache; the network-first SW keeps a copy only as
+     * the offline fallback). */
+    private const ORDER = [
+        'html' => ['head.html', 'header.html', 'live-gauges.html', 'live-nums.html', 'status.html',
+                   'history-controls.html', 'history-charts.html', 'settings-appearance.html',
+                   'settings-cycle.html', 'settings-notify.html', 'settings-system.html',
+                   'calib.html', 'footer.html'],
+        'css'  => ['base.css', 'cards.css', 'charts.css', 'light.css', 'mobile.css'],
+        'js'   => ['i18n.js', 'lite-pwa.js', 'tabs.js', 'state.js', 'gauges-calib.js', 'utils.js',
+                   'live.js', 'live-ctl.js', 'history.js', 'poll-test.js', 'zoom.js', 'boot.js'],
+    ];
 
-    private function assemble(string $glob): ?string
+    private function assemble(string $type): ?string
     {
-        $files = glob($this->fileDir . '/' . $glob);
-        if (!$files) return null;
-        sort($files);                                  /* name order = load order (NN prefix) */
-        return implode('', array_map(fn($f) => (string)@file_get_contents($f), $files));
+        $out = ''; $any = false;
+        foreach (self::ORDER[$type] as $name) {
+            $c = @file_get_contents($this->fileDir . '/' . $name);
+            if ($c !== false) { $out .= $c; $any = true; }
+        }
+        return $any ? $out : null;
     }
-    private function newestMtime(array $globs): int
+    private function newestMtime(): int
     {
         $m = 0;
-        foreach ($globs as $g) foreach (glob($this->fileDir . '/' . $g) ?: [] as $f) $m = max($m, (int)@filemtime($f));
+        foreach (self::ORDER as $list) foreach ($list as $name) $m = max($m, (int)@filemtime($this->fileDir . '/' . $name));
         return $m;
     }
     private function buildVer(): string
     {
-        $m = $this->newestMtime(self::PARTS) ?: (@filemtime($this->fileDir . '/dashboard.html') ?: time());
+        $m = $this->newestMtime() ?: (@filemtime($this->fileDir . '/dashboard.html') ?: time());
         return gmdate('Y-m-d H:i', $m) . ' UTC';
     }
     private function stamp(string $s): string
@@ -56,7 +68,7 @@ final class Ui
     {
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-store');
-        $html = $this->assemble(self::PARTS['html']) ?? @file_get_contents($this->fileDir . '/dashboard.html');
+        $html = $this->assemble('html') ?? @file_get_contents($this->fileDir . '/dashboard.html');
         if ($html === false || $html === null) { http_response_code(503); echo "not deployed (push the UI parts via deploy.sh)"; return; }
         echo $this->stamp((string)$html);
     }
@@ -70,8 +82,8 @@ final class Ui
         if (!preg_match('/^[A-Za-z0-9_.-]+\.(js|css|json)$/', $name)) { http_response_code(400); echo "bad asset"; return; }
         $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $type = ['js' => 'text/javascript', 'css' => 'text/css', 'json' => 'application/json'][$ext] ?? 'text/plain';
-        $body = $name === 'dashboard.css' ? $this->assemble(self::PARTS['css'])
-              : ($name === 'dashboard.js' ? $this->assemble(self::PARTS['js']) : null);
+        $body = $name === 'dashboard.css' ? $this->assemble('css')
+              : ($name === 'dashboard.js' ? $this->assemble('js') : null);
         if ($body === null) {
             $f = $this->fileDir . '/' . $name;
             if (!is_file($f)) { http_response_code(404); echo "not found: $name"; return; }
@@ -85,7 +97,7 @@ final class Ui
     /* GET ?dl_html=1 -- serve the deployed dashboard HTML as a downloadable file. */
     public function handleDownloadHtml(): void
     {
-        $html = $this->assemble(self::PARTS['html']) ?? @file_get_contents($this->fileDir . '/dashboard.html');
+        $html = $this->assemble('html') ?? @file_get_contents($this->fileDir . '/dashboard.html');
         if ($html === false || $html === null) {
             http_response_code(404);
             header('Content-Type: text/plain');
@@ -108,7 +120,7 @@ final class Ui
         header('Cache-Control: no-cache');
         /* Cache name = newest of all UI fragments, so changing any css/js/html part bumps the
          * SW → old cache dropped, fresh assets re-fetched. */
-        $ver = 'meteo-' . ($this->newestMtime(self::PARTS) ?: (@filemtime($this->fileDir . '/dashboard.html') ?: 1));
+        $ver = 'meteo-' . ($this->newestMtime() ?: (@filemtime($this->fileDir . '/dashboard.html') ?: 1));
         echo str_replace('__SW_CACHE__', $ver, (string)@file_get_contents($this->fileDir . '/sw.js'));
         exit;
     }
