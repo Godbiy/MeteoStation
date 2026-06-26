@@ -38,7 +38,6 @@ final class Server
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $g = $_GET;
             if (isset($g['ui']))            { $this->ui->handleUi(); exit; }
-            if (isset($g['ui_serial']))     { $this->ui->handleUiSerial(); exit; }
             if (isset($g['set_avg']))       { $this->api->handleSetAvg(); exit; }
             if (isset($g['set_samples']))   { $this->api->handleSetSamples(); exit; }
             if (isset($g['set_live']))      { $this->api->handleSetLive(); exit; }

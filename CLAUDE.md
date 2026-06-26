@@ -13,7 +13,7 @@ Fuses (low-power, BOD disabled):
 
 ```
 src/Meteo/  PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin (namespace Meteo).
-src/ui/     dashboard.html + serial.html (served from disk; serial = a dashboard tab via iframe).
+src/ui/     dashboard.html (operator UI; serial/GSM vane calibration is a native tab).
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
             firmware/probes/ = bring-up sketches (gitignored)
 server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, config.example.php
@@ -49,7 +49,7 @@ router), `Api` (station POST + history/config API), `Store` (all file IO), `Payl
 decode + CRC), `WebPush` (VAPID), `Ui` (dashboard/serial/PWA), `Admin` (key-gated edit/restore/wipe).
 
 - `server/meteo.php` — **thin bootstrap** for the stelnet host: defines class `TestKurwa` (the path the framework routes to), autoloads `Meteo\*` from `FILE_DIR/src/Meteo`, and runs `(new \Meteo\Server($cfg))->handle()`. The web root can't take new files, so the library + UI + config all live in `FILE_DIR` (`/st/petro/tmp/meteo`, chmod 777).
-- `dashboard.html` / `serial.html` — operator UI / Web-Serial calibration UI.
+- `dashboard.html` — operator UI (live, history, status, settings, and a native vane-calibration tab: Web-Serial COM **or** GSM-live source, 8-point grid, push/pull to the server).
 - `deploy.sh` — **no build step**: pushes `src/Meteo/*.php` (`?edit&file=X.php&src`), UI, and `config.php` into `FILE_DIR`, then the bootstrap to itself (`?edit`). Re-run after any edit.
 - `config.example.php` → copy to `config.php` (gitignored): `EDIT_KEY` + VAPID keys, `require`d at runtime from `FILE_DIR`. Never in git.
 - `examples/standalone/` — the same library wired for a normal host (no FILE_DIR trick).

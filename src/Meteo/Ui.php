@@ -14,10 +14,9 @@ final class Ui
         $this->editKey = ($cfg['EDIT_KEY'] ?? '') ?: "\0";
     }
 
-    /* GET ?ui=1 / ?ui_serial=1 -- serve the UI from FILE_DIR. __BUILD_VER__ is stamped from
-     * the file mtime; __EDIT_KEY__ is filled so the dashboard's admin calls authenticate. */
-    public function handleUi(): void       { $this->serveUi('dashboard.html'); }
-    public function handleUiSerial(): void { $this->serveUi('serial.html'); }
+    /* GET ?ui=1 -- serve the dashboard from FILE_DIR. __BUILD_VER__ is stamped from the file
+     * mtime; __EDIT_KEY__ is filled so the dashboard's admin calls authenticate. */
+    public function handleUi(): void { $this->serveUi('dashboard.html'); }
     private function serveUi(string $name): void
     {
         header('Content-Type: text/html; charset=utf-8');
@@ -70,9 +69,7 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   let url; try { url = new URL(req.url); } catch (_) { return; }
-  /* The dashboard's Serial tab embeds ?ui_serial in an iframe; that's a 'navigate' too, so
-   * exclude it here or the SW would serve the cached dashboard shell into the iframe. */
-  const isShell = (req.mode === 'navigate' || url.searchParams.has('ui')) && !url.searchParams.has('ui_serial');
+  const isShell = req.mode === 'navigate' || url.searchParams.has('ui');
   if (!isShell) return;   /* data endpoints (history etc.) pass through; app falls back to IndexedDB offline */
   /* stale-while-revalidate: serve the cached shell INSTANTLY (works offline), refresh in bg. */
   e.respondWith((async () => {

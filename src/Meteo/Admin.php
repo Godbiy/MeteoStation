@@ -47,7 +47,7 @@ final class Admin
         header('Content-Type: text/plain');
         if ($this->badKey()) { http_response_code(401); echo "bad key\n"; return; }
         $name = basename((string)($_GET['file'] ?? ''));
-        $allow = ['dashboard.html', 'serial.html', 'config.php'];
+        $allow = ['dashboard.html', 'config.php'];
         $isSrc = (bool)preg_match('/^[A-Za-z][A-Za-z0-9]*\.php$/', $name) && isset($_GET['src']);
         if (!in_array($name, $allow, true) && !$isSrc) { http_response_code(400); echo "file not allowed: $name\n"; return; }
         $body = file_get_contents('php://input');

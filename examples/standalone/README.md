@@ -8,8 +8,7 @@ same code the production stelnet adapter runs.
 
 ```bash
 cp config.example.php config.php        # fill EDIT_KEY + VAPID keys (gitignored)
-cp ../../src/ui/dashboard.html public/  # the operator UI
-cp ../../src/ui/serial.html    public/  # calibration UI (also embedded as the dashboard's Serial tab)
+cp ../../src/ui/dashboard.html public/  # the operator UI (calibration is a tab inside it)
 ```
 
 Drop the whole `standalone/` directory on your host (or set the vhost docroot to it), make sure
@@ -20,7 +19,7 @@ PHP can write to `data/`, then point the firmware's `SERVER_URL` at the director
 
 `index.php` wires paths + secrets and calls `(new Meteo\Server($cfg))->handle()`. Endpoints:
 
-- `?ui=1` dashboard · `?ui_serial=1` calibration UI
+- `?ui=1` dashboard (vane calibration is a tab inside it)
 - `POST` (binary) — station payload, logged to `data/log.ndjson`
 - `?config=1`, `?since=`, `?range=`, `?stats=1` — config + history JSON
 - `?sw=1`, `?manifest=1`, `?icon=1` — PWA (installable, offline)
