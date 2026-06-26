@@ -21,7 +21,7 @@ const I18N = {
        live_mode:'🔴 Live режим (для калібровки)',
        live_hint:'Прошивка стає у нон-стоп live POSTs (3с цикл). Жере батарею, тільки для калібровки.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Нон-стоп Live POSTs', cancel:'Скасувати', confirm_yes:'Так',
+       live_posts:'Нон-стоп Live POSTs', cancel:'Скасувати', confirm_yes:'Так', back_online:'Знову онлайн', went_offline:'Втрачено зв\'язок',
        danger:'⚠ Danger', wipe:'Видалити всі дані на сервері', server:'Сервер',
        calib_title:'🧭 Калібровка сенсорів',
        calib_hint2:'Калібровка робиться через окрему сторінку. Підтримує Serial COM (швидко, при платі) і GSM live (з будь-де).',
@@ -96,7 +96,7 @@ const I18N = {
        live_mode:'🔴 Tryb live (do kalibracji)',
        live_hint:'Firmware wchodzi w ciągłe POSTy (3s cykl). Wyczerpuje baterię, tylko do kalibracji.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Non-stop Live POSTs', cancel:'Anuluj', confirm_yes:'Tak',
+       live_posts:'Non-stop Live POSTs', cancel:'Anuluj', confirm_yes:'Tak', back_online:'Znów online', went_offline:'Utracono połączenie',
        danger:'⚠ Niebezpieczne', wipe:'Usuń wszystkie dane na serwerze', server:'Serwer',
        calib_title:'🧭 Kalibracja czujników',
        calib_hint2:'Kalibracja przez osobną stronę. Wspiera Serial COM (szybko, przy płycie) i GSM live (zdalnie).',
@@ -171,7 +171,7 @@ const I18N = {
        live_mode:'🔴 Live mode (for calibration)',
        live_hint:'Firmware enters non-stop live POSTs (3s cycle). Eats battery, calibration only.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Non-stop Live POSTs', cancel:'Cancel', confirm_yes:'Yes',
+       live_posts:'Non-stop Live POSTs', cancel:'Cancel', confirm_yes:'Yes', back_online:'Back online', went_offline:'Connection lost',
        danger:'⚠ Danger', wipe:'Wipe all server data', server:'Server',
        calib_title:'🧭 Sensor calibration',
        calib_hint2:'Calibration via a dedicated page. Supports Serial COM (fast, at the board) and GSM live (remote).',
@@ -289,6 +289,7 @@ function applyTheme(){
   const tb = document.getElementById('theme-toggle');
   if (tb) tb.innerHTML = icSvg(THEME === 'sunlight' ? 'ic-moon' : 'ic-sun');
   const tsw = document.getElementById('theme-sw'); if (tsw) tsw.checked = (THEME === 'sunlight');
+  applyThemeColor();
 }
 function setTheme(name){ THEME = name; localStorage.setItem('theme', THEME); applyTheme(); }
 applyTheme();
@@ -458,8 +459,13 @@ function switchToTab(page, anim, prerendered){
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
   const cur = document.querySelector('.tab.active')?.dataset.page;
+  if (t.dataset.page !== cur) haptic(10);
+  if (t.dataset.page === 'history'){ histSeenTs = lastConfig?.last_timestamp || histSeenTs; setTabBadge('history', false); }
   switchToTab(t.dataset.page, tabIndex(t.dataset.page) > tabIndex(cur) ? 'r' : 'l');
 }));
+let histSeenTs = null, _prevPostTs = null, _wasOffline = false;   /* History-seen marker + fresh-post + connectivity tracking */
+/* haptic feedback on any toggle switch flip (delegated, touch devices only) */
+document.addEventListener('change', e => { if (e.target?.closest?.('.switch')) haptic(12); });
 
 /* Swipeable pager: the page follows your finger and the neighbour slides in;
  * on release it completes past ~28% else snaps back. Ignores swipes that start
@@ -659,6 +665,24 @@ function updateTabDots(){
     ic.style.color = color;                  /* '' → inherit (mut / active accent) */
     ic.classList.toggle('pulse', pulse);
   });
+  updateTabBadges();
+}
+/* Status dots on the remaining tabs:
+ *  Settings — red if alerts are on but notifications can't show; amber(pulse) if a config change is pending.
+ *  Calib    — green(pulse) while a capture source streams; amber if calibration is incomplete (<8 points). */
+function updateTabBadges(){
+  let setColor = null, setPulse = false;
+  const permBad = ALERTS_ON && ('Notification' in window) && Notification.permission !== 'granted';
+  const pend = Array.isArray(pending) && pending.some(p => p.status === 'waiting');
+  if (permBad) setColor = 'var(--err)';
+  else if (pend){ setColor = 'var(--warn)'; setPulse = true; }
+  setTabBadge('settings', !!setColor, setColor, setPulse);
+
+  const streaming = capPort || capGsmTimer;
+  let calColor = null, calPulse = false;
+  if (streaming){ calColor = 'var(--ok)'; calPulse = true; }
+  else { try { if (Object.keys(getCalib()).length < 8) calColor = 'var(--warn)'; } catch (_) {} }
+  setTabBadge('calib', !!calColor, calColor, calPulse);
 }
 function renderStatus(){
   const s = inferState();
@@ -1091,7 +1115,7 @@ function capRenderGrid(){
       if (capByte == null){ const s = $('cap-stat'); s.textContent = '⚠ ' + t('cal_nodata'); s.className = 'stat err'; return; }
       const cc = getCalib(); cc[dir] = capByte; setCalib(cc);
       const s = $('cap-stat'); s.textContent = `✓ ${dir} = ${capByte}`; s.className = 'stat ok';
-      capRenderGrid(); renderCalibReadonly();
+      haptic(15); capRenderGrid(); renderCalibReadonly(); updateTabBadges();
     };
     el.appendChild(b);
   }
@@ -1108,7 +1132,7 @@ async function capConnect(){
     await capPort.open({ baudRate: +$('cap-baud').value || 4800 });
     $('cap-connect').disabled = true; $('cap-disconnect').disabled = false;
     $('cap-stat').textContent = '✓ ' + t('cal_streaming'); $('cap-stat').className = 'stat ok';
-    capKeep = true; capReadLoop();
+    capKeep = true; capReadLoop(); updateTabBadges();
   } catch (e){ $('cap-stat').textContent = '✗ ' + e.message; $('cap-stat').className = 'stat err'; }
 }
 async function capReadLoop(){
@@ -1136,6 +1160,7 @@ async function capDisconnect(){
   capPort = null; capReader = null;
   $('cap-connect').disabled = false; $('cap-disconnect').disabled = true;
   $('cap-stat').textContent = t('cal_closed'); $('cap-stat').className = 'stat';
+  updateTabBadges();
 }
 async function capGsmPoll(){
   try {
@@ -1153,6 +1178,7 @@ function capSetSource(src){
   $('cap-gsm').style.display    = src === 'gsm' ? '' : 'none';
   capStopGsm();
   if (src === 'gsm'){ capGsmPoll(); capGsmTimer = setInterval(capGsmPoll, 2000); }
+  updateTabBadges();
 }
 if (!('serial' in navigator)){ $('cap-warn').style.display = 'block'; $('cap-connect').disabled = true; }
 $('cap-connect').addEventListener('click', capConnect);
@@ -1174,12 +1200,55 @@ let testTimer    = null;
 let pollTimer    = null;
 
 /* =========== TOAST =========== */
-function toast(msg, err=false){
-  const el = $('toast'); el.textContent = msg; el.className = 'toast show' + (err ? ' err' : '');
+/* type: false/'' = success (default), true/'err' = error, 'warn', 'info' */
+function toast(msg, type=false){
+  const cls = type === true ? 'err' : (type || '');
+  const el = $('toast'); el.textContent = msg; el.className = 'toast show' + (cls ? ' ' + cls : '');
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 /* retrigger the scale "bump" animation on an element */
 function bump(el){ if (!el) return; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+/* ===== micro-interactions: haptics, tab badges, theme-color, count-up, trend ===== */
+function prefersReduced(){ try { return matchMedia('(prefers-reduced-motion:reduce)').matches; } catch (_) { return false; } }
+/* short vibration — only on touch devices that support it (no-op on desktop) */
+function haptic(ms=12){ try { if (navigator.vibrate && matchMedia('(pointer:coarse)').matches && !prefersReduced()) navigator.vibrate(ms); } catch (_) {} }
+/* per-tab status dot: setTabBadge('settings', true, 'var(--err)') / (…, false) to clear */
+function setTabBadge(page, on, color, pulse){
+  const b = document.getElementById('badge-' + page); if (!b) return;
+  if (on){ if (color) b.style.background = color; b.classList.add('on'); b.classList.toggle('pulse', !!pulse); }
+  else b.classList.remove('on', 'pulse');
+}
+/* PWA chrome / status-bar colour follows the active theme */
+function applyThemeColor(){
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', THEME === 'sunlight' ? '#e6eaef' : '#0d1117');
+}
+/* count-up a number element from its previous value to `to` (easeOutCubic) */
+function animateNumber(el, to, fmt, dur=450){
+  if (!el) return;
+  fmt = fmt || (n => String(Math.round(n)));
+  const from = parseFloat(el.dataset.val), target = +to;
+  el.dataset.val = target;
+  if (!isFinite(from) || from === target || prefersReduced()){ el.textContent = fmt(target); return; }
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(from + (target - from) * e);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+/* ▲▼ trend arrow on a .trend span, by comparing to the previous value */
+function setTrend(el, val){
+  if (!el) return;
+  const prev = parseFloat(el.dataset.prev);
+  el.dataset.prev = val;
+  if (!isFinite(prev) || Math.abs(val - prev) < 1e-9){ el.className = 'trend'; el.textContent = ''; return; }
+  el.className = 'trend ' + (val > prev ? 'up' : 'down');
+  el.textContent = val > prev ? '▲' : '▼';
+}
+/* brief highlight ring when fresh data lands */
+function flashNew(el){ if (!el || prefersReduced()) return; el.classList.remove('flash-new'); void el.offsetWidth; el.classList.add('flash-new'); }
 /* In-app confirm — native window.confirm() is suppressed (returns false) in many
  * standalone/installed PWAs, which made "destructive" buttons silently no-op.
  * Returns a Promise<boolean>. Falls back to window.confirm if the modal is absent. */
@@ -1318,9 +1387,8 @@ function renderLive(){
   pushBattSample();                       /* keep the battery-trend buffer current for the honest charge badge */
   const SF = SPEED_FACTOR * spdMul();
   const kmh = (s.pulses_sec || 0) * SF;
-  const kmhStr = kmh.toFixed(1);
-  if ($('t-kmh').textContent !== kmhStr) bump($('t-kmh'));   /* pulse only on change */
-  $('t-kmh').textContent = kmhStr;
+  animateNumber($('t-kmh'), kmh, n => n.toFixed(1));   /* count-up on change */
+  setTrend($('t-kmh-trend'), kmh);
   $('t-pps').textContent = (s.pulses_sec || 0).toFixed(1);
   setSpeedo(kmh);
 
@@ -1336,7 +1404,8 @@ function renderLive(){
 
   if (s.batt_mv != null){
     const bp = battPct(s.batt_mv);
-    if ($('t-batt-v'))   $('t-batt-v').textContent = (s.batt_mv/1000).toFixed(2);
+    if ($('t-batt-v')) animateNumber($('t-batt-v'), s.batt_mv/1000, n => n.toFixed(2));
+    setTrend($('t-batt-trend'), s.batt_mv);
     if ($('t-batt-pct')){
       $('t-batt-pct').textContent = bp.pct + '%';
       $('t-batt-pct').style.color = bp.pct > 40 ? 'var(--ok)' : bp.pct > 15 ? 'var(--warn)' : 'var(--err)';
@@ -1938,15 +2007,15 @@ function fireOnce(key, cond, title, body, icon){
   if (cond && !_alertState[key]) notify(title, body, icon);
   _alertState[key] = cond;
 }
-/* PWA app-icon badge: a dot while the panel is actively charging, cleared otherwise. */
-function updateAppBadge(charging){
+/* PWA app-icon badge: the count of currently-active problem alerts (cleared at 0). */
+function updateAppBadge(n){
   try {
     if (!('setAppBadge' in navigator)) return;
-    if (charging) navigator.setAppBadge(); else navigator.clearAppBadge();
+    if (n > 0) navigator.setAppBadge(n); else navigator.clearAppBadge();
   } catch (_) {}
 }
 function checkAlerts(){
-  if (!ALERTS_ON) return;
+  if (!ALERTS_ON){ updateAppBadge(0); return; }
   const A = ALERTS;
   if (lastSnapshot){
     const mv = lastSnapshot.batt_mv;
@@ -1969,7 +2038,6 @@ function checkAlerts(){
       if (hasSun  && _alertState.charging === false) notify('☀ ' + t('alert_chgon_n'), '', pushIcon('online'));
       if (!hasSun && _alertState.charging === true)  notify('🌙 ' + t('alert_chgoff_n'), t('alert_chgoff_b'), pushIcon('crit'));
       _alertState.charging = hasSun;
-      updateAppBadge(cur.chargeMa > 0);   /* badge follows real current (clears at full) */
     }
   }
   /* offline / back-online from the last regular-post age */
@@ -1981,6 +2049,8 @@ function checkAlerts(){
     if (!off && _alertState.offline && A.online.on) notify('✅ ' + t('alert_online_n'), '', pushIcon('online'));
     _alertState.offline = off;
   }
+  /* app-icon badge = number of active problem alerts */
+  updateAppBadge(['battCrit', 'battLow', 'windHigh', 'offline'].filter(k => _alertState[k]).length);
 }
 (function(){
   const sw = $('al-sw'), perm = $('al-perm'), test = $('al-test'), stat = $('al-stat'), wrap = $('al-types');
@@ -1994,9 +2064,9 @@ function checkAlerts(){
   });
   const showPerm = () => { stat.textContent = ('Notification' in window) ? Notification.permission : '—'; };
   showPerm();
-  const setOn = v => { ALERTS_ON = v; localStorage.setItem('alerts_on', v ? '1' : '0'); reflect(); };
+  const setOn = v => { ALERTS_ON = v; localStorage.setItem('alerts_on', v ? '1' : '0'); reflect(); updateTabBadges(); };
   sw.addEventListener('change', () => setOn(sw.checked));
-  perm.addEventListener('click', async () => { if ('Notification' in window){ await Notification.requestPermission(); showPerm(); } });
+  perm.addEventListener('click', async () => { if ('Notification' in window){ await Notification.requestPermission(); showPerm(); updateTabBadges(); } });
   test.addEventListener('click', async () => {
     if (!('Notification' in window)){ toast('браузер не підтримує сповіщення', true); return; }
     if (Notification.permission !== 'granted'){ await Notification.requestPermission(); showPerm(); }
@@ -2445,6 +2515,9 @@ async function renderHistory(){
     drawHistoryCharts();
     return;
   }
+  /* shimmer the chart frames on the very first (cold) load while we fetch */
+  if ($('chart-speed') && !$('chart-speed').hasChildNodes())
+    ['chart-speed', 'chart-rose', 'chart-batt'].forEach(id => $(id)?.classList.add('skeleton'));
   try {
     const nowMs = Date.now();
     const cutoffMs = nowMs - rangeSec(currentRange) * 1000;
@@ -2557,6 +2630,7 @@ function buildHistoryPts(){
 
 let _forceCharts = false;   /* when true, drawHistoryCharts ignores the on-screen gate (pre-render) */
 function drawHistoryCharts(windowOnly = false){
+  ['chart-speed', 'chart-rose', 'chart-batt'].forEach(id => document.getElementById(id)?.classList.remove('skeleton'));   /* drop the cold-load shimmer */
   if (!history.length){
     noData($('chart-speed'), 600, 180);
     $('chart-batt').innerHTML  = '';
@@ -3562,6 +3636,17 @@ async function poll(){
     }
     renderLive();
     checkPending();
+    /* fresh-POST cues: ring the live card + dot the History tab when a new post lands */
+    const postTs = lastConfig?.last_timestamp;
+    if (postTs && postTs !== _prevPostTs){
+      if (_prevPostTs){
+        const active = document.querySelector('.tab.active')?.dataset.page;
+        if (active === 'live') flashNew(document.querySelector('#page-live .live-top'));
+        if (active !== 'history' && postTs !== histSeenTs) setTabBadge('history', true, 'var(--accent)');
+      }
+      _prevPostTs = postTs;
+    }
+    if (_wasOffline){ _wasOffline = false; $('dot').className = 'dot ' + (lastConfig?.live ? 'live' : 'on'); toast(t('back_online'), 'info'); }
     if (document.querySelector('.tab.active')?.dataset.page === 'status') renderStatus();
     /* Auto-refresh History if visible and there's new data since last fetch */
     if (document.querySelector('.tab.active')?.dataset.page === 'history'){
@@ -3577,6 +3662,7 @@ async function poll(){
   } catch (e){
     $('hdr-stat').textContent = 'offline (' + e.message + ')';
     $('dot').className = 'dot warn';
+    if (!_wasOffline){ _wasOffline = true; toast(t('went_offline'), 'warn'); }
   }
 }
 /* Live countdown 1s tick for status tab */
@@ -4230,6 +4316,7 @@ document.addEventListener('keydown', e => {
 
 /* =========== BOOT =========== */
 applyI18n();
+updateTabBadges();   /* reflect calib-incomplete / settings-attention on load, before first poll */
 
 /* Bind viewport-zoom on time-axis charts (shared chartView) */
 ['chart-speed','chart-wt','chart-dir','chart-batt','chart-signal','chart-solar','chart-uptime'].forEach(id => {

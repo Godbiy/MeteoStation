@@ -70,9 +70,9 @@
 <div class="tabs">
   <button class="tab active" data-page="live"><svg class="ic"><use href="#ic-live"/></svg> <span data-i18n="tab_live">Live</span></button>
   <button class="tab" data-page="status"><svg class="ic"><use href="#ic-status"/></svg> <span data-i18n="tab_status">Стан</span></button>
-  <button class="tab" data-page="history"><svg class="ic"><use href="#ic-history"/></svg> <span data-i18n="tab_history">Історія</span></button>
-  <button class="tab" data-page="settings"><svg class="ic"><use href="#ic-settings"/></svg> <span data-i18n="tab_settings">Налаштування</span></button>
-  <button class="tab" data-page="calib"><svg class="ic"><use href="#ic-calib"/></svg> <span data-i18n="tab_calib">Калібровка</span></button>
+  <button class="tab" data-page="history"><svg class="ic"><use href="#ic-history"/></svg> <span data-i18n="tab_history">Історія</span><span class="tab-badge" id="badge-history"></span></button>
+  <button class="tab" data-page="settings"><svg class="ic"><use href="#ic-settings"/></svg> <span data-i18n="tab_settings">Налаштування</span><span class="tab-badge" id="badge-settings"></span></button>
+  <button class="tab" data-page="calib"><svg class="ic"><use href="#ic-calib"/></svg> <span data-i18n="tab_calib">Калібровка</span><span class="tab-badge" id="badge-calib"></span></button>
   <span class="tab-ind" id="tab-ind"></span>
 </div>
 
@@ -135,7 +135,7 @@
         <circle cx="110" cy="115" r="9" fill="url(#hub)" stroke="#000" stroke-width=".5"/>
         <circle cx="110" cy="115" r="3" fill="#adb5bd"/>
       </svg>
-      <div style="font-size:30px;font-weight:700;line-height:1;margin-top:6px"><span id="t-kmh">—</span><span id="t-kmh-unit" class="muted" style="font-size:13px;font-weight:600;margin-left:6px;letter-spacing:1px">km/h</span></div>
+      <div style="font-size:30px;font-weight:700;line-height:1;margin-top:6px"><span id="t-kmh">—</span><span class="trend" id="t-kmh-trend"></span><span id="t-kmh-unit" class="muted" style="font-size:13px;font-weight:600;margin-left:6px;letter-spacing:1px">km/h</span></div>
       <div class="muted" style="font-size:11px;margin-top:4px"><span id="t-pps">—</span> imp/s</div>
     </div>
   </div>
@@ -143,7 +143,7 @@
   <div class="nums">
     <div class="cell">
       <div class="l"><svg class="ic ic-sm"><use href="#ic-battery"/></svg> <span data-i18n="battery">Батарея</span></div>
-      <div class="v" id="t-batt"><span id="t-batt-v">—</span><span style="font-size:13px;color:var(--mut)"> V</span></div>
+      <div class="v" id="t-batt"><span id="t-batt-v">—</span><span style="font-size:13px;color:var(--mut)"> V</span><span class="trend" id="t-batt-trend"></span></div>
       <div class="s"><span id="t-batt-pct">—%</span> · <span id="t-batt-mv">— mV</span></div>
     </div>
     <div class="cell">

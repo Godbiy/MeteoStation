@@ -30,13 +30,19 @@ h1{font-size:17px;margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-
 .lang-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
 
 .tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:12px;overflow-x:auto;position:relative}
-.tab{padding:9px 14px;cursor:pointer;color:var(--mut);background:none;border:none;border-bottom:2px solid transparent;font:inherit;font-size:13px;font-weight:500;white-space:nowrap}
+.tab{position:relative;padding:9px 14px;cursor:pointer;color:var(--mut);background:none;border:none;border-bottom:2px solid transparent;font:inherit;font-size:13px;font-weight:500;white-space:nowrap}
 .tab-ind{position:absolute;bottom:0;left:0;width:100px;height:2.5px;background:var(--accent);border-radius:2px;pointer-events:none;transform-origin:left center;will-change:transform}
 .tab:hover{color:var(--fg)}
 .tab.active{color:var(--accent)}
 .tab .ic{transition:color .3s}
 .tab .ic.pulse{animation:tabpulse 1.4s ease-in-out infinite}
 @keyframes tabpulse{0%,100%{opacity:1}50%{opacity:.4}}
+/* per-tab status dot: attention (Settings), incomplete/stream (Calib), new data (History) */
+.tab-badge{position:absolute;top:5px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--err);
+           box-shadow:0 0 0 2px var(--panel);opacity:0;transform:scale(.4);transition:opacity .25s,transform .25s;pointer-events:none}
+.tab-badge.on{opacity:1;transform:scale(1)}
+.tab-badge.pulse{animation:tabpulse 1.4s ease-in-out infinite}
+@media (max-width:640px){ .tab-badge{box-shadow:0 0 0 2px var(--panel)} }
 .page{display:none}
 .page.active{display:block}
 
@@ -197,6 +203,17 @@ table.netlog th:nth-child(4),table.netlog td:nth-child(4){width:52px;white-space
 .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--ok);color:var(--ok);padding:8px 14px;border-radius:6px;font-size:13px;z-index:99;display:none}
 .toast.show{display:block;animation:fadein .2s}
 .toast.err{border-color:var(--err);color:var(--err)}
+.toast.warn{border-color:var(--warn);color:var(--warn)}
+.toast.info{border-color:var(--accent);color:var(--accent)}
+/* value trend arrow next to a live number */
+.trend{font-size:.7em;margin-left:3px;opacity:0;transition:opacity .3s;vertical-align:middle}
+.trend.up{color:var(--ok);opacity:1}
+.trend.down{color:var(--err);opacity:1}
+/* loading shimmer placeholder (charts before first data) */
+.skeleton{position:relative;overflow:hidden;background:var(--panel2);border-radius:6px}
+.skeleton::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(127,127,127,.14),transparent);animation:shimmer 1.3s infinite}
+@keyframes shimmer{100%{transform:translateX(100%)}}
 @keyframes fadein{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 
 .test-banner{background:linear-gradient(90deg,rgba(188,140,255,.15),rgba(88,166,255,.15));border:1px solid var(--purple);color:var(--purple);padding:6px 10px;border-radius:6px;font-size:12px;margin-bottom:10px;display:none;align-items:center;gap:8px}
@@ -227,6 +244,8 @@ html,body{overflow-x:hidden}
 @keyframes slideL{from{transform:translateX(-30px);opacity:.3}to{transform:none;opacity:1}}
 .bump{display:inline-block;animation:bump .35s ease}
 @keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.08)}100%{transform:scale(1)}}
+.flash-new{animation:flashnew .9s ease-out}
+@keyframes flashnew{0%{box-shadow:0 0 0 0 rgba(88,166,255,.45)}100%{box-shadow:0 0 0 10px rgba(88,166,255,0)}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}}
 /* Lite mode (2G): hide heavy/chart cards, badge in header */
 body.lite .lite-hide{display:none}
