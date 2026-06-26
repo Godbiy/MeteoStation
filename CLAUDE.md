@@ -12,7 +12,7 @@ Fuses (low-power, BOD disabled):
 ## Repo layout
 
 ```
-src/Meteo/  PHP library, 1 class/file: Server, Store, Payload, WebPush, Ui, Admin (namespace Meteo).
+src/Meteo/  PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin (namespace Meteo).
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
             firmware/probes/ = bring-up sketches (gitignored)
 server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, dashboard.html, serial.html,
@@ -43,9 +43,9 @@ to watch the state machine / AT trace live.
 
 ## Server / Dashboard (PHP + HTML)
 
-The backend is the **`Meteo\*` library** in `src/Meteo/` (one class per file): `Server` (router +
-station POST + history/config API), `Store` (all file IO), `Payload` (binary decode + CRC),
-`WebPush` (VAPID), `Ui` (dashboard/serial/PWA), `Admin` (key-gated edit/restore/wipe/gen_demo).
+The backend is the **`Meteo\*` library** in `src/Meteo/` (one class per file): `Server` (pure
+router), `Api` (station POST + history/config API), `Store` (all file IO), `Payload` (binary
+decode + CRC), `WebPush` (VAPID), `Ui` (dashboard/serial/PWA), `Admin` (key-gated edit/restore/wipe).
 
 - `server/meteo.php` — **thin bootstrap** for the stelnet host: defines class `TestKurwa` (the path the framework routes to), autoloads `Meteo\*` from `FILE_DIR/src/Meteo`, and runs `(new \Meteo\Server($cfg))->handle()`. The web root can't take new files, so the library + UI + config all live in `FILE_DIR` (`/st/petro/tmp/meteo`, chmod 777).
 - `dashboard.html` / `serial.html` — operator UI / Web-Serial calibration UI.

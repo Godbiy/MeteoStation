@@ -9,8 +9,9 @@ alerts.
 ## Repo layout
 
 ```
-src/Meteo/       PHP library, one class per file: Server (router), Store (persistence),
-                 Payload (binary decode + CRC), WebPush (VAPID), Ui (dashboard/PWA), Admin (edit).
+src/Meteo/       PHP library, one class per file: Server (pure router), Api (station POST +
+                 history/config), Store (persistence), Payload (binary decode + CRC),
+                 WebPush (VAPID), Ui (dashboard/PWA), Admin (edit).
 firmware/        AVR firmware (C). main.c = non-blocking state machine; gsm.c, sensor.c,
                  power.c, dbgUart.c (soft-UART debug). config.h = all build flags.
 firmware/probes/ standalone hardware bring-up sketches (gitignored)
