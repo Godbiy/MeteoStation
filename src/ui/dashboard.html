@@ -569,19 +569,17 @@
   <div class="card">
     <h2 data-i18n="spush">📡 Серверний пуш (фон)</h2>
     <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="spush_hint">Доставляє сповіщення навіть коли апку закрито. Пороги беруться з «Сповіщень» вище. По кожному пості: батарея, вітер, «знов онлайн» (офлайн — лише foreground).</div>
-    <div class="set-row">
+    <div class="set-row toggle">
       <span class="set-lbl" data-i18n="spush_lbl">На цей пристрій</span>
-      <div class="seg">
-        <button class="seg-btn" id="sp-off-btn" data-i18n="off">Вимк</button>
-        <button class="seg-btn" id="sp-on-btn" data-i18n="on_btn">Увімк</button>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="sp-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
     <div class="stat" id="sp-stat" style="margin-top:2px;text-align:center"></div>
-    <div class="set-row">
+    <div class="set-row toggle">
       <span class="set-lbl" data-i18n="livepin_lbl">📌 Live у шторці</span>
-      <div class="seg">
-        <button class="seg-btn" id="lp-off-btn" data-i18n="off">Вимк</button>
-        <button class="seg-btn" id="lp-on-btn" data-i18n="on_btn">Увімк</button>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="lp-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
     <div class="set-note" data-i18n="livepin_hint">Закріплює поточні дані у шторці, тихо оновлюється в фоні щопоста (~раз на цикл). Не дзвенить.</div>
@@ -601,9 +599,11 @@
   <div class="card">
     <h2 data-i18n="live_mode">🔴 Live режим (для калібровки)</h2>
     <div class="muted" style="margin-bottom:8px" data-i18n="live_hint">Прошивка стає у нон-стоп live POSTs (3с цикл). Жере батарею, тільки для калібровки.</div>
-    <div class="card-actions">
-      <button id="live-on"  class="btn primary"><svg class="ic"><use href="#ic-rec"/></svg> <span data-i18n="start_live">Start LIVE</span></button>
-      <button id="live-off" class="btn danger"><svg class="ic"><use href="#ic-pause"/></svg> <span data-i18n="stop_live">Stop LIVE</span></button>
+    <div class="set-row toggle" style="margin-top:4px">
+      <span class="set-lbl"><svg class="ic" style="color:var(--err)"><use href="#ic-rec"/></svg> <span data-i18n="live_posts">Нон-стоп Live POSTs</span></span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="live-sw"><span class="track"><span class="knob"></span></span></label>
+      </div>
     </div>
     <div class="stat" id="live-stat" style="margin-top:6px;text-align:center"></div>
   </div>

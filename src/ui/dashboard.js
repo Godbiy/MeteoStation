@@ -21,6 +21,7 @@ const I18N = {
        live_mode:'🔴 Live режим (для калібровки)',
        live_hint:'Прошивка стає у нон-стоп live POSTs (3с цикл). Жере батарею, тільки для калібровки.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
+       live_posts:'Нон-стоп Live POSTs',
        danger:'⚠ Danger', wipe:'Видалити всі дані на сервері', server:'Сервер',
        calib_title:'🧭 Калібровка сенсорів',
        calib_hint2:'Калібровка робиться через окрему сторінку. Підтримує Serial COM (швидко, при платі) і GSM live (з будь-де).',
@@ -94,6 +95,7 @@ const I18N = {
        live_mode:'🔴 Tryb live (do kalibracji)',
        live_hint:'Firmware wchodzi w ciągłe POSTy (3s cykl). Wyczerpuje baterię, tylko do kalibracji.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
+       live_posts:'Non-stop Live POSTs',
        danger:'⚠ Niebezpieczne', wipe:'Usuń wszystkie dane na serwerze', server:'Serwer',
        calib_title:'🧭 Kalibracja czujników',
        calib_hint2:'Kalibracja przez osobną stronę. Wspiera Serial COM (szybko, przy płycie) i GSM live (zdalnie).',
@@ -167,6 +169,7 @@ const I18N = {
        live_mode:'🔴 Live mode (for calibration)',
        live_hint:'Firmware enters non-stop live POSTs (3s cycle). Eats battery, calibration only.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
+       live_posts:'Non-stop Live POSTs',
        danger:'⚠ Danger', wipe:'Wipe all server data', server:'Server',
        calib_title:'🧭 Sensor calibration',
        calib_hint2:'Calibration via a dedicated page. Supports Serial COM (fast, at the board) and GSM live (remote).',
@@ -1524,6 +1527,11 @@ function renderConfig(){
   $('t-cycle-cfg').textContent = `n=${c.samples} avg=${c.avg}` + (c.live ? ' · LIVE' : '') + obsTag + pendTag;
   $('dot').className = 'dot ' + (c.live ? 'live' : 'on');
   $('hdr-stat').textContent = c.live ? 'LIVE active' : (c.last_timestamp ? '· ' + c.last_timestamp : '');
+  const lsw = $('live-sw');
+  if (lsw){
+    const p = pending.find(p => p.status === 'waiting' && 'live' in p.target);
+    lsw.checked = p ? !!p.target.live : !!c.live;   /* stay on the user's choice while a live toggle is pending */
+  }
   renderIntervalSelector();
 }
 function renderAll(){ renderLive(); renderConfig(); }
@@ -1643,13 +1651,10 @@ $('iv-apply').addEventListener('click', async () => {
 });
 
 /* =========== LIVE controls =========== */
-$('live-on').addEventListener('click', async () => {
-  try { await fjson(SRV + '?set_live=1&t=' + Date.now()); $('live-stat').textContent = '✓ saved, waiting'; $('live-stat').className='stat ok'; trackPending('live', { live: 1 }); toast('LIVE on'); poll(); }
-  catch (e){ $('live-stat').textContent = 'err: ' + e.message; $('live-stat').className='stat err'; }
-});
-$('live-off').addEventListener('click', async () => {
-  try { await fjson(SRV + '?set_live=0&t=' + Date.now()); $('live-stat').textContent = '✓ saved, waiting'; $('live-stat').className='stat ok'; trackPending('live', { live: 0 }); toast('LIVE off'); poll(); }
-  catch (e){ $('live-stat').textContent = 'err: ' + e.message; $('live-stat').className='stat err'; }
+$('live-sw')?.addEventListener('change', async e => {
+  const v = e.target.checked ? 1 : 0;
+  try { await fjson(SRV + '?set_live=' + v + '&t=' + Date.now()); $('live-stat').textContent = '✓ saved, waiting'; $('live-stat').className='stat ok'; trackPending('live', { live: v }); toast('LIVE ' + (v ? 'on' : 'off')); poll(); }
+  catch (err){ $('live-stat').textContent = 'err: ' + err.message; $('live-stat').className='stat err'; e.target.checked = !e.target.checked; }   /* revert on failure */
 });
 async function updateCacheStats(){
   if (!$('cache-size')) return;
@@ -2103,22 +2108,22 @@ async function loadDeviceList(){
   } catch { box.innerHTML = `<div class="set-note">помилка</div>`; }
 }
 (function(){
-  const onB = $('sp-on-btn'), offB = $('sp-off-btn'), stat = $('sp-stat');
-  if (!onB) return;
+  const sw = $('sp-sw'), stat = $('sp-stat');
+  if (!sw) return;
   let on = localStorage.getItem('spush_on') === '1';
-  const reflect = () => { onB.classList.toggle('active', on); offB.classList.toggle('active', !on); };
+  const reflect = () => { sw.checked = on; };
   reflect();
-  onB.addEventListener('click', async () => {
+  sw.addEventListener('change', async () => {
     stat.textContent = '…';
-    const s = await spushReg();              /* leaves a diagnostic in sp-stat */
-    if (s){ on = true; localStorage.setItem('spush_on', '1'); toast('серверний пуш увімкнено ✓'); }
-    reflect();
-  });
-  offB.addEventListener('click', async () => {
-    stat.textContent = '…';
-    await spushUnreg();
-    on = false; localStorage.setItem('spush_on', '0'); toast('серверний пуш вимкнено');
-    stat.textContent = 'вимкнено'; reflect();
+    if (sw.checked){
+      const s = await spushReg();            /* leaves a diagnostic in sp-stat */
+      if (s){ on = true; localStorage.setItem('spush_on', '1'); toast('серверний пуш увімкнено ✓'); }
+      reflect();                             /* if reg failed, on stays false → switch flips back */
+    } else {
+      await spushUnreg();
+      on = false; localStorage.setItem('spush_on', '0'); toast('серверний пуш вимкнено');
+      stat.textContent = 'вимкнено'; reflect();
+    }
   });
   async function runPushTest(url){
     const res = $('sp-test-res'); res.textContent = '…';
@@ -2138,26 +2143,27 @@ async function loadDeviceList(){
 /* Live pin: foreground refresh here + server pushes the same tag each POST for
  * background updates (needs the server-push subscription). */
 (function(){
-  const onB = $('lp-on-btn'), offB = $('lp-off-btn'), stat = $('lp-stat');
-  if (!onB) return;
+  const sw = $('lp-sw'), stat = $('lp-stat');
+  if (!sw) return;
   let on = localStorage.getItem('live_pin') === '1';
-  const reflect = () => { onB.classList.toggle('active', on); offB.classList.toggle('active', !on); };
+  const reflect = () => { sw.checked = on; };
   reflect();
-  onB.addEventListener('click', async () => {
-    stat.textContent = '…';
-    if (!('Notification' in window)){ stat.textContent = 'браузер не підтримує'; return; }
-    if (Notification.permission !== 'granted') await Notification.requestPermission();
-    if (Notification.permission !== 'granted'){ stat.textContent = 'дозвіл відхилено'; return; }
-    on = true; localStorage.setItem('live_pin', '1'); reflect();
-    const sub = await spushReg();        /* subscribe + push livePin cfg for background */
-    updateLivePin();                     /* show immediately (foreground) */
-    stat.textContent = sub ? '✓ закріплено · фон через пуш' : '✓ foreground; увімкни Серверний пуш для фону';
-  });
-  offB.addEventListener('click', async () => {
-    on = false; localStorage.setItem('live_pin', '0'); reflect();
-    await spushSyncCfg();                /* stop server pin pushes */
-    updateLivePin();                     /* close the pin */
-    stat.textContent = 'вимкнено';
+  sw.addEventListener('change', async () => {
+    if (sw.checked){
+      stat.textContent = '…';
+      if (!('Notification' in window)){ stat.textContent = 'браузер не підтримує'; on = false; reflect(); return; }
+      if (Notification.permission !== 'granted') await Notification.requestPermission();
+      if (Notification.permission !== 'granted'){ stat.textContent = 'дозвіл відхилено'; on = false; reflect(); return; }
+      on = true; localStorage.setItem('live_pin', '1'); reflect();
+      const sub = await spushReg();        /* subscribe + push livePin cfg for background */
+      updateLivePin();                     /* show immediately (foreground) */
+      stat.textContent = sub ? '✓ закріплено · фон через пуш' : '✓ foreground; увімкни Серверний пуш для фону';
+    } else {
+      on = false; localStorage.setItem('live_pin', '0'); reflect();
+      await spushSyncCfg();                /* stop server pin pushes */
+      updateLivePin();                     /* close the pin */
+      stat.textContent = 'вимкнено';
+    }
   });
 })();
 
