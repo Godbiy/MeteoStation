@@ -21,7 +21,7 @@ const I18N = {
        live_mode:'🔴 Live режим (для калібровки)',
        live_hint:'Прошивка стає у нон-стоп live POSTs (3с цикл). Жере батарею, тільки для калібровки.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Нон-стоп Live POSTs', cancel:'Скасувати', confirm_yes:'Так', back_online:'Знову онлайн', went_offline:'Втрачено зв\'язок',
+       live_posts:'Нон-стоп Live POSTs', cancel:'Скасувати', confirm_yes:'Так', back_online:'Знову онлайн', went_offline:'Втрачено зв\'язок', haptics:'📳 Вібрація',
        danger:'⚠ Danger', wipe:'Видалити всі дані на сервері', server:'Сервер',
        calib_title:'🧭 Калібровка сенсорів',
        calib_hint2:'Калібровка робиться через окрему сторінку. Підтримує Serial COM (швидко, при платі) і GSM live (з будь-де).',
@@ -96,7 +96,7 @@ const I18N = {
        live_mode:'🔴 Tryb live (do kalibracji)',
        live_hint:'Firmware wchodzi w ciągłe POSTy (3s cykl). Wyczerpuje baterię, tylko do kalibracji.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Non-stop Live POSTs', cancel:'Anuluj', confirm_yes:'Tak', back_online:'Znów online', went_offline:'Utracono połączenie',
+       live_posts:'Non-stop Live POSTs', cancel:'Anuluj', confirm_yes:'Tak', back_online:'Znów online', went_offline:'Utracono połączenie', haptics:'📳 Wibracja',
        danger:'⚠ Niebezpieczne', wipe:'Usuń wszystkie dane na serwerze', server:'Serwer',
        calib_title:'🧭 Kalibracja czujników',
        calib_hint2:'Kalibracja przez osobną stronę. Wspiera Serial COM (szybko, przy płycie) i GSM live (zdalnie).',
@@ -171,7 +171,7 @@ const I18N = {
        live_mode:'🔴 Live mode (for calibration)',
        live_hint:'Firmware enters non-stop live POSTs (3s cycle). Eats battery, calibration only.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Non-stop Live POSTs', cancel:'Cancel', confirm_yes:'Yes', back_online:'Back online', went_offline:'Connection lost',
+       live_posts:'Non-stop Live POSTs', cancel:'Cancel', confirm_yes:'Yes', back_online:'Back online', went_offline:'Connection lost', haptics:'📳 Vibration',
        danger:'⚠ Danger', wipe:'Wipe all server data', server:'Server',
        calib_title:'🧭 Sensor calibration',
        calib_hint2:'Calibration via a dedicated page. Supports Serial COM (fast, at the board) and GSM live (remote).',
@@ -295,6 +295,13 @@ function setTheme(name){ THEME = name; localStorage.setItem('theme', THEME); app
 applyTheme();
 document.getElementById('theme-toggle')?.addEventListener('click', () => setTheme(THEME === 'sunlight' ? 'dark' : 'sunlight'));
 document.getElementById('theme-sw')?.addEventListener('change', e => setTheme(e.target.checked ? 'sunlight' : 'dark'));
+/* Vibration on/off (this element's own handler runs before the delegated buzz,
+ * so switching OFF won't itself buzz). */
+let HAPTICS_ON = localStorage.getItem('haptics') !== '0';   /* default on */
+(() => { const hsw = document.getElementById('haptics-sw'); if (!hsw) return;
+  hsw.checked = HAPTICS_ON;
+  hsw.addEventListener('change', () => { HAPTICS_ON = hsw.checked; localStorage.setItem('haptics', HAPTICS_ON ? '1' : '0'); });
+})();
 /* Settings test-mode switch mirrors the header toggle */
 document.getElementById('test-toggle-2')?.addEventListener('change', () => document.getElementById('test-toggle')?.click());
 
@@ -1210,8 +1217,9 @@ function toast(msg, type=false){
 function bump(el){ if (!el) return; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
 /* ===== micro-interactions: haptics, tab badges, theme-color, count-up, trend ===== */
 function prefersReduced(){ try { return matchMedia('(prefers-reduced-motion:reduce)').matches; } catch (_) { return false; } }
-/* short vibration — only on touch devices that support it (no-op on desktop) */
-function haptic(ms=12){ try { if (navigator.vibrate && matchMedia('(pointer:coarse)').matches && !prefersReduced()) navigator.vibrate(ms); } catch (_) {} }
+/* short vibration — only on touch devices that support it (no-op on desktop), and
+ * only if the user hasn't switched it off in Settings (HAPTICS_ON declared up top). */
+function haptic(ms=12){ try { if (HAPTICS_ON && navigator.vibrate && matchMedia('(pointer:coarse)').matches && !prefersReduced()) navigator.vibrate(ms); } catch (_) {} }
 /* per-tab status dot: setTabBadge('settings', true, 'var(--err)') / (…, false) to clear */
 function setTabBadge(page, on, color, pulse){
   const b = document.getElementById('badge-' + page); if (!b) return;
