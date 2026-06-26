@@ -429,7 +429,11 @@ const tabIndex = p => TAB_ORDER.indexOf(p);
 const tabInd = document.getElementById('tab-ind');
 function tabBox(page){ const t = document.querySelector(`.tab[data-page="${page}"]`); return t ? { l: t.offsetLeft, w: t.offsetWidth } : { l: 0, w: 0 }; }
 function setInd(l, w, anim){ if (!tabInd) return; tabInd.style.transition = anim ? 'transform .2s ease' : 'none'; tabInd.style.transform = `translateX(${l}px) scaleX(${w / 100})`; }
-function indToActive(anim){ const a = document.querySelector('.tab.active'); if (a) setInd(a.offsetLeft, a.offsetWidth, anim); }
+function indToActive(anim){
+  const a = document.querySelector('.tab.active'); if (!a) return;
+  if (tabInd){ const tc = getComputedStyle(a).getPropertyValue('--tc').trim(); if (tc) tabInd.style.background = tc; }   /* underline = active tab's signature colour */
+  setInd(a.offsetLeft, a.offsetWidth, anim);
+}
 addEventListener('load', () => indToActive(false));
 requestAnimationFrame(() => indToActive(false));
 /* Synchronous, network-FREE render of a page using whatever data we already hold — fills
@@ -678,17 +682,18 @@ function inferState(){
  * blue(pulse) = live streaming · amber = live pending · red = offline. */
 function updateTabDots(){
   const s = inferState();
+  /* Signature colours are the base; state only OVERRIDES for notable cases, else '' falls
+   * back to each tab's own --tc. (live = pulse in its own colour, not a recolour.) */
   let color = '', pulse = false;
   if (s && s.cur){
-    if (s.offline || s.cur.id === 'offline')      color = 'var(--err)';
-    else if (s.cur.id === 'lpend')                color = 'var(--warn)';
-    else if (s.cur.id === 'live'){ color = 'var(--accent)'; pulse = true; }
-    else                                          color = 'var(--ok)';
+    if (s.offline || s.cur.id === 'offline') color = 'var(--err)';     /* offline → red */
+    else if (s.cur.id === 'lpend')           color = 'var(--warn)';    /* live pending → amber */
+    else if (s.cur.id === 'live')            pulse = true;             /* streaming → pulse in signature colour */
   }
   ['live', 'status'].forEach(pg => {
     const ic = document.querySelector(`.tab[data-page="${pg}"] .ic`);
     if (!ic) return;
-    ic.style.color = color;                  /* '' → inherit (mut / active accent) */
+    ic.style.color = color;                  /* '' → fall back to the tab's signature --tc */
     ic.classList.toggle('pulse', pulse);
   });
   updateTabBadges();
