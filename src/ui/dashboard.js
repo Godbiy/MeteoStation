@@ -332,6 +332,14 @@ function parseServerTs(s){
   }
   return new Date(iso).getTime();
 }
+/* Inverse of parseServerTs for test mode: format an epoch as a "YYYY-MM-DD HH:MM:SS"
+ * string that parseServerTs() reads back to ~the same epoch (honours the data-TZ). */
+function mockServerTs(epochMs){
+  if (TZ_OFFSET && !isNaN(parseFloat(TZ_OFFSET)))
+    return new Date(epochMs + parseFloat(TZ_OFFSET) * 3600000).toISOString().replace('T', ' ').slice(0, 19);
+  const d = new Date(epochMs), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
 
 let SOLAR_WATT = parseFloat(localStorage.getItem('solar_watt')) || 3;   /* panel W; default 3W = worst-case A4-ish 10-12V panel */
 /* Solar panel state thresholds (mV at the panel node, NOT battery):
@@ -471,6 +479,17 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   switchToTab(t.dataset.page, tabIndex(t.dataset.page) > tabIndex(cur) ? 'r' : 'l');
 }));
 let histSeenTs = null, _prevPostTs = null, _wasOffline = false;   /* History-seen marker + fresh-post + connectivity tracking */
+/* fresh-POST cues (shared by real polling + test mode): ring the live card and dot the
+ * History tab when last_timestamp advances to a value we haven't shown yet. */
+function onFreshPost(postTs){
+  if (!postTs || postTs === _prevPostTs) return;
+  if (_prevPostTs){
+    const active = document.querySelector('.tab.active')?.dataset.page;
+    if (active === 'live') flashNew(document.querySelector('#page-live .live-top'));
+    if (active !== 'history' && postTs !== histSeenTs) setTabBadge('history', true, 'var(--accent)');
+  }
+  _prevPostTs = postTs;
+}
 /* haptic feedback on any toggle switch flip (delegated, touch devices only) */
 document.addEventListener('change', e => { if (e.target?.closest?.('.switch')) haptic(12); });
 
@@ -3644,16 +3663,7 @@ async function poll(){
     }
     renderLive();
     checkPending();
-    /* fresh-POST cues: ring the live card + dot the History tab when a new post lands */
-    const postTs = lastConfig?.last_timestamp;
-    if (postTs && postTs !== _prevPostTs){
-      if (_prevPostTs){
-        const active = document.querySelector('.tab.active')?.dataset.page;
-        if (active === 'live') flashNew(document.querySelector('#page-live .live-top'));
-        if (active !== 'history' && postTs !== histSeenTs) setTabBadge('history', true, 'var(--accent)');
-      }
-      _prevPostTs = postTs;
-    }
+    onFreshPost(lastConfig?.last_timestamp);   /* ring the live card + dot History on a new post */
     if (_wasOffline){ _wasOffline = false; $('dot').className = 'dot ' + (lastConfig?.live ? 'live' : 'on'); toast(t('back_online'), 'info'); }
     if (document.querySelector('.tab.active')?.dataset.page === 'status') renderStatus();
     /* Auto-refresh History if visible and there's new data since last fetch */
@@ -3693,7 +3703,8 @@ function startPoll(){
 function stopPoll(){ if (pollTimer){ clearInterval(pollTimer); pollTimer = null; } }
 
 /* =========== TEST MODE =========== */
-let tickIdx = 0;
+let tickIdx = 0, mockLastPost = null;
+const MOCK_CYCLE = 24;   /* short cycle so the Status state machine visibly advances during a demo */
 function mockTick(){
   tickIdx++;
   const t = tickIdx;
@@ -3705,20 +3716,28 @@ function mockTick(){
   /* drifting direction */
   const dir = (3 + 2 * Math.sin(t / 20) + Math.random() * 0.7) % 8;
   const dirIdx = Math.floor(dir);
-  /* fake vane byte: use one-hot pattern for selected dir, plus some noise */
   const vane = 0xFF ^ (1 << dirIdx);
   const batt = 4100 - Math.floor(t * 0.5) + Math.floor(Math.random() * 30 - 15);
   const csq = 25 + Math.floor(Math.random() * 5);
+  /* virtual cycle clock: last_timestamp stays put between simulated POSTs so the
+   * Status countdown/progress/state-machine advance, then "post" every MOCK_CYCLE. */
+  const nowMs = Date.now();
+  if (mockLastPost == null) mockLastPost = nowMs;
+  let since = (nowMs - mockLastPost) / 1000;
+  if (since >= MOCK_CYCLE){ mockLastPost = nowMs; since = 0; }
   lastSnapshot = {
     vane, dir: dirIdx, pulses_sec: pps, batt_mv: batt, csq,
-    timestamp: new Date().toISOString().replace('T',' ').slice(0,19),
-    age_sec: 0,
+    solar_mv: Math.max(0, Math.round(5500 * Math.sin(t / 40))),   /* day/night-ish for the solar UI */
+    timestamp: mockServerTs(nowMs), age_sec: Math.floor(since),
   };
   lastConfig = {
-    samples: 30, avg: 1, samples_max: 450, live: 1,
-    cycle_seconds: 60, last_timestamp: lastSnapshot.timestamp,
+    samples: 12, avg: 1, samples_max: 450, live: 0,
+    cycle_seconds: MOCK_CYCLE, intended_cycle_seconds: MOCK_CYCLE,   /* keep intended==observed so no false mismatch */
+    last_timestamp: mockServerTs(mockLastPost),
   };
   renderLive(); renderConfig();
+  onFreshPost(lastConfig.last_timestamp);   /* fire flash + History badge on each simulated POST */
+  if (document.querySelector('.tab.active')?.dataset.page === 'status') renderStatus();
 }
 function genMockHistory(range){
   const map = { '1h': [60, 60], '6h': [360, 60], '24h': [1440, 120], '7d': [10080, 600], '30d': [43200, 1800] };
@@ -3749,7 +3768,7 @@ $('test-toggle').addEventListener('click', () => {
   { const t2 = $('test-toggle-2'); if (t2) t2.checked = testMode; }   /* settings switch reflects the on/off state */
   if (testMode){
     stopPoll();
-    tickIdx = 0;
+    tickIdx = 0; mockLastPost = null;
     /* Pre-fill speedHistory with realistic past timestamps so live timeline
      * shows real curve, not 60 points stacked at "now". */
     const now = Date.now();
