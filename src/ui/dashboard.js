@@ -2534,7 +2534,7 @@ function buildHistoryPts(){
 let _forceCharts = false;   /* when true, drawHistoryCharts ignores the on-screen gate (pre-render) */
 function drawHistoryCharts(windowOnly = false){
   if (!history.length){
-    $('chart-speed').innerHTML = `<text x="300" y="90" text-anchor="middle" fill="var(--mut)" font-size="12">${t('no_data')}</text>`;
+    noData($('chart-speed'), 600, 180);
     $('chart-batt').innerHTML  = '';
     $('chart-rose').innerHTML  = '';
     $('stats-table').querySelector('tbody').innerHTML = '';
@@ -2691,13 +2691,18 @@ function timeTickConfigForSpan(spanMs){
 }
 function pad2(n){ return n < 10 ? '0' + n : '' + n; }
 
+/* Consistent empty-chart placeholder (centered muted text) so every empty card looks the same. */
+function noData(svg, W, H, msg){
+  svg.innerHTML = `<text x="${(W/2).toFixed(0)}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="12" opacity=".75">${msg || t('no_data')}</text>`;
+  svg.__ctx = { pts: [] }; if (svg.__hideTip) svg.__hideTip();
+}
 function drawLineChart(svgId, pts, key, keyMax, color, dual=false, win=null){
   const svg = $(svgId);
   const H = chartH(svg, +svg.getAttribute('viewBox').split(' ')[3] || 180);
   const W = chartW(svg, 600);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const TOP = 10, BOT = 26, LEFT = 32, RIGHT = 8;   /* margins (BOT taller for x labels) */
-  if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else svg.innerHTML = ''; svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return; }
+  if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else noData(svg, W, H); svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return; }
   /* when data exists, fit the x-axis to the DATA extent (no empty edge padding);
    * internal gaps still show as gaps between points. `win` is only for empty views. */
   const xMin = pts[0].ts, xMax = pts[pts.length-1].ts;
@@ -2792,7 +2797,7 @@ function drawBattSignal(svgId, battPts, csqPts, win=null, lostPts=[]){
   const W = chartW(svg, 600);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const TOP = 12, BOT = 26, LEFT = 34, RIGHT = 24;
-  if (!battPts.length){ if (win) drawEmptyWindow(svg, W, H, win); else svg.innerHTML = `<text x="${W/2}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="12">${t('no_data')}</text>`; svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return; }
+  if (!battPts.length){ if (win) drawEmptyWindow(svg, W, H, win); else noData(svg, W, H); svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return; }
   const xMin = battPts[0].ts, xMax = battPts[battPts.length-1].ts;   /* fit to data; win only for empty views */
   const bv = battPts.map(p => p.batt).filter(v => typeof v === 'number' && v > 0);
   const bHi = Math.max(...bv, 3300), bLo = Math.min(...bv, 3300);
@@ -2897,7 +2902,7 @@ function drawSignal(svgId, csqPts, win = null, lostPts = []){
   const TOP = 12, BOT = 26, LEFT = 28, RIGHT = 8, CSQ_MAX = 31, SIG_COL = '#58d3ff';
   if (!csqPts.length && !lostPts.length){
     if (win) drawEmptyWindow(svg, W, H, win);
-    else svg.innerHTML = `<text x="${(W/2).toFixed(0)}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="12">${t('sig_none')}</text>`;
+    else noData(svg, W, H, t('sig_none'));
     svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return;
   }
   /* one continuous line: cyan where the signal was read, RED (dropped to 0) where the
@@ -3015,7 +3020,7 @@ function drawDirTimeline(pts, svgId = 'chart-dir', win = null){
   const W = chartW(svg, 600);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const TOP = 12, BOT = 26, LEFT = 36, RIGHT = 8;
-  if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else svg.innerHTML = ''; svg.__ctx = { pts: [] }; return; }
+  if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else noData(svg, W, H); svg.__ctx = { pts: [] }; return; }
   const dirPts = pts.filter(p => p.dir != null && p.dir >= 0 && p.dir < 8);
   const xMin = pts[0].ts, xMax = pts[pts.length-1].ts;
   const sx = ts => ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT;
