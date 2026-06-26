@@ -485,7 +485,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
        * slides in pixel-aligned — using a computed header/tab offset instead drifted the new
        * page DOWN. Height covers from there to the viewport bottom; overflow clips the rest. */
       Object.assign(nb.style, { position: 'fixed', top: r.top + 'px', left: r.left + 'px', width: d.w + 'px',
-        height: Math.max(r.height, innerHeight - Math.max(0, r.top)) + 'px', overflow: 'hidden', zIndex: '40', display: 'block', margin: '0', willChange: 'transform' });
+        height: Math.max(r.height, innerHeight - Math.max(0, r.top)) + 'px', overflow: 'hidden', zIndex: '30', background: 'var(--bg)', display: 'block', margin: '0', willChange: 'transform' });
       d.active.style.willChange = 'transform';
       d.eng = true;
       /* pre-render the neighbour (still off-screen) with current data so it slides in
@@ -512,7 +512,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
     d = null;
     setTimeout(() => {
       ['transform', 'transition', 'willChange'].forEach(p => a.style[p] = '');
-      ['position', 'top', 'left', 'width', 'height', 'overflow', 'zIndex', 'display', 'margin', 'transform', 'transition', 'willChange'].forEach(p => n.style[p] = '');
+      ['position', 'top', 'left', 'width', 'height', 'overflow', 'zIndex', 'background', 'display', 'margin', 'transform', 'transition', 'willChange'].forEach(p => n.style[p] = '');
       if (target) switchToTab(target, null, true);   /* neighbour already rendered at engage */
     }, 210);
   }, { passive: true });

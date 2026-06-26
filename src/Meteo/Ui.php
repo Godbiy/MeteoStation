@@ -67,7 +67,13 @@ final class Ui
         header('Content-Type: application/javascript; charset=utf-8');
         header('Service-Worker-Allowed: ./');
         header('Cache-Control: no-cache');
-        $ver = 'meteo-' . (@filemtime($this->fileDir . '/dashboard.html') ?: 1);
+        /* Cache name = newest of the precached assets, so changing dashboard.js or .css alone
+         * (not just .html) still bumps the SW → old cache dropped, fresh assets re-fetched. */
+        $ver = 'meteo-' . max(
+            @filemtime($this->fileDir . '/dashboard.html') ?: 1,
+            @filemtime($this->fileDir . '/dashboard.js') ?: 1,
+            @filemtime($this->fileDir . '/dashboard.css') ?: 1
+        );
         echo str_replace('__SW_CACHE__', $ver, (string)@file_get_contents($this->fileDir . '/sw.js'));
         exit;
     }
