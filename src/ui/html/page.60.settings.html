@@ -1,0 +1,249 @@
+<!-- ============ SETTINGS ============ -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <h2 data-i18n="appearance">🎨 Вигляд</h2>
+    <div class="set-row toggle">
+      <span class="set-lbl" data-i18n="theme">Тема</span>
+      <div class="sw-wrap">
+        <svg class="ic sw-ico moon"><use href="#ic-moon"/></svg>
+        <label class="switch"><input type="checkbox" id="theme-sw"><span class="track"><span class="knob"></span></span></label>
+        <svg class="ic sw-ico sun"><use href="#ic-sun"/></svg>
+      </div>
+    </div>
+    <div class="set-row">
+      <span class="set-lbl" data-i18n="language">Мова</span>
+      <div class="seg">
+        <button class="lang-btn" data-lang="uk">UA</button>
+        <button class="lang-btn" data-lang="pl">PL</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
+    </div>
+    <div class="set-row">
+      <span class="set-lbl" data-i18n="tz_label">🕓 Часовий пояс даних</span>
+      <select id="tz-sel">
+        <option value="" data-i18n="tz_auto">авто (як браузер)</option>
+        <option value="0">UTC+0</option><option value="1">UTC+1</option>
+        <option value="2">UTC+2</option><option value="3">UTC+3</option>
+        <option value="-5">UTC-5</option><option value="-8">UTC-8</option>
+      </select>
+    </div>
+    <div class="set-row toggle">
+      <span class="set-lbl" data-i18n="test_mode">🧪 Тест-режим</span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="test-toggle-2"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+    <div class="set-row toggle">
+      <span class="set-lbl" data-i18n="haptics">📳 Вібрація</span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="haptics-sw"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 data-i18n="data_2g">📶 2G / дані</h2>
+    <div class="set-row toggle">
+      <span class="set-lbl" data-i18n="lite_mode">Lite-режим</span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="lite-sw"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+    <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="lite_hint">Lite: повільний поллінг (60с), без щогодинного завантаження кривої — мінімум трафіку на 2G.</div>
+    <div class="card-actions">
+      <button id="refresh-now" class="btn"><svg class="ic"><use href="#ic-cycle"/></svg> <span data-i18n="refresh">Синхронізувати</span><span class="spinner" id="sync-spin"></span></button>
+    </div>
+  </div>
+  <div class="card">
+    <h2 data-i18n="post_interval">📡 Інтервал POST</h2>
+    <div class="muted" style="margin-bottom:8px"><span data-i18n="cur_setting">Поточне</span>: <span id="cur-cfg">—</span></div>
+    <div class="set-field full"><select id="iv-sel"></select></div>
+    <div class="stat" id="iv-stat"></div>
+    <div class="card-actions">
+      <button id="iv-apply" class="btn primary" disabled data-i18n="apply">Застосувати</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="speed_calib">🌀 Калібровка швидкості</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="speed_calib_hint">Скільки км/год дає 1 імпульс/с анемометра. Міняє лише відображення на дашборді (прошивка шле сирі імпульси).</div>
+    <div class="set-field">
+      <span class="lbl" data-i18n="speed_units">Одиниці</span>
+      <div class="ctl">
+        <select id="unit-sel">
+          <option value="kmh">km/h</option>
+          <option value="ms">m/s</option>
+          <option value="mph">mph</option>
+          <option value="kn">knots</option>
+        </select>
+      </div>
+    </div>
+    <div class="set-field">
+      <span class="lbl">1 імп/с =</span>
+      <div class="ctl"><input id="sf-input" type="number" step="0.01" min="0.01"><span class="unit">км/год</span></div>
+    </div>
+    <div class="set-note">↔ <span id="sf-inverse">—</span></div>
+    <div class="card-actions">
+      <button id="sf-apply" class="btn primary" data-i18n="apply">Застосувати</button>
+      <button id="sf-reset" class="btn" data-i18n="reset_btn">Скинути</button>
+    </div>
+    <div class="stat" id="sf-stat" style="margin-top:6px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="batt_settings">🔋 Батарея</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="batt_settings_hint">Специфікації пакета — для прогнозу «скільки лишилось». Лише розрахунок на дашборді (прошивка шле тільки напругу).</div>
+    <div class="set-field">
+      <span class="lbl" data-i18n="batt_cap">Ємність</span>
+      <div class="ctl"><input id="bs-cap" type="number" step="50" min="0"><span class="unit">mAh</span></div>
+    </div>
+    <div class="set-field">
+      <span class="lbl" data-i18n="batt_cut">Відсічка</span>
+      <div class="ctl"><input id="bs-cut" type="number" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
+    </div>
+    <div class="set-field">
+      <span class="lbl" data-i18n="solar_w">Соляр-панель</span>
+      <div class="ctl"><input id="solar-w" type="number" step="0.5" min="0"><span class="unit">W</span></div>
+    </div>
+    <div class="set-note" id="solar-note"></div>
+    <div class="card-actions">
+      <button id="bs-apply" class="btn primary" data-i18n="apply">Застосувати</button>
+      <button id="bs-reset" class="btn" data-i18n="reset_btn">Скинути</button>
+    </div>
+    <div class="stat" id="bs-stat" style="margin-top:6px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="alerts">🔔 Сповіщення</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="alerts_hint">Push-сповіщення коли вкладка відкрита. Обери які типи приходять.</div>
+    <div class="set-row toggle">
+      <span class="set-lbl" data-i18n="alerts_on_lbl">Сповіщення</span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="al-sw"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+    <div id="al-types" style="display:flex;flex-direction:column">
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="battLow"><span data-i18n="alert_batt_lbl">Батарея низька &lt;</span></label>
+        <div class="ctl"><input type="number" data-th="battLow" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="battCrit"><span data-i18n="alert_crit_lbl">Батарея критична &lt;</span></label>
+        <div class="ctl"><input type="number" data-th="battCrit" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="windHigh"><span data-i18n="alert_wind_lbl">Вітер &gt;</span></label>
+        <div class="ctl"><input type="number" data-th="windHigh" step="1" min="0"><span class="unit" id="al-wind-unit">km/h</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="solar"><span data-i18n="alert_solar_lbl">Заряд / сонце (старт, стоп, повна)</span></label>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="offline"><span data-i18n="alert_offline_lbl">Офлайн (нема даних) &gt;</span></label>
+        <div class="ctl"><input type="number" data-th="offline" step="5" min="5"><span class="unit" data-i18n="minutes">хв</span></div>
+      </div>
+      <div class="al-type">
+        <label class="al-head"><input type="checkbox" data-al="online"><span data-i18n="alert_online_lbl">Знов онлайн (відновився)</span></label>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button id="al-apply" class="btn primary" data-i18n="apply">Застосувати</button>
+    </div>
+    <div class="card-actions">
+      <button id="al-perm" class="btn" data-i18n="alerts_perm">Дозволити</button>
+      <button id="al-test" class="btn" data-i18n="alerts_test">Тест</button>
+    </div>
+    <div class="stat" id="al-stat" style="margin-top:6px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="spush">📡 Серверний пуш (фон)</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="spush_hint">Доставляє сповіщення навіть коли апку закрито. Пороги беруться з «Сповіщень» вище. По кожному пості: батарея, вітер, «знов онлайн» (офлайн — лише foreground).</div>
+    <div class="set-row toggle">
+      <span class="set-lbl" data-i18n="spush_lbl">На цей пристрій</span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="sp-sw"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+    <div class="stat" id="sp-stat" style="margin-top:2px;text-align:center"></div>
+    <div class="set-row toggle">
+      <span class="set-lbl" data-i18n="livepin_lbl">📌 Live у шторці</span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="lp-sw"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+    <div class="set-note" data-i18n="livepin_hint">Закріплює поточні дані у шторці, тихо оновлюється в фоні щопоста (~раз на цикл). Не дзвенить.</div>
+    <div class="stat" id="lp-stat" style="text-align:center"></div>
+    <div class="card-actions">
+      <button id="sp-test" class="btn" data-i18n="spush_test">Тест із сервера</button>
+      <button id="sp-testall" class="btn" data-i18n="spush_testall">Усі типи</button>
+    </div>
+    <div class="set-note" id="sp-test-res" style="text-align:center"></div>
+    <div class="set-field" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+      <span class="lbl" data-i18n="spush_devices">Підписані пристрої</span>
+      <div class="ctl"><button id="sp-refresh" class="btn sm" title="refresh">↻</button></div>
+    </div>
+    <div id="sp-dev-list" style="display:flex;flex-direction:column;gap:6px;font-size:12px;margin-top:4px"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="live_mode">🔴 Live режим (для калібровки)</h2>
+    <div class="muted" style="margin-bottom:8px" data-i18n="live_hint">Прошивка стає у нон-стоп live POSTs (3с цикл). Жере батарею, тільки для калібровки.</div>
+    <div class="set-row toggle" style="margin-top:4px">
+      <span class="set-lbl"><svg class="ic" style="color:var(--err)"><use href="#ic-rec"/></svg> <span data-i18n="live_posts">Нон-стоп Live POSTs</span></span>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="live-sw"><span class="track"><span class="knob"></span></span></label>
+      </div>
+    </div>
+    <div class="stat" id="live-stat" style="margin-top:6px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="local_cache">💾 Локальний кеш (IndexedDB)</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="cache_hint">
+      Дані зберігаються в браузері (IndexedDB, ~50MB+). Підвантажуємо лише нові точки через ?since. Сервер gzip-ує відповідь.
+    </div>
+    <div class="row-gap" style="justify-content:space-between;font-size:12px">
+      <span class="muted">Точок: <b id="cache-pts" style="color:var(--fg)">—</b></span>
+      <span class="muted">Storage: <b id="cache-size" style="color:var(--fg)">—</b></span>
+      <span class="muted">Quota: <b id="cache-quota" style="color:var(--mut)">—</b></span>
+    </div>
+    <div class="set-field">
+      <span class="lbl" data-i18n="retention">Зберігати</span>
+      <div class="ctl">
+        <select id="retention-sel">
+          <option value="7"   data-i18n="ret_7d">7 днів</option>
+          <option value="30"  data-i18n="ret_30d">30 днів</option>
+          <option value="180" data-i18n="ret_180d">6 міс</option>
+          <option value="365" data-i18n="ret_365d">1 рік</option>
+          <option value="0"   data-i18n="ret_unl">безлімітно</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button id="clear-cache-btn" class="btn danger" data-i18n="clear_cache">Очистити кеш</button>
+    </div>
+    <div class="stat" id="cache-stat" style="margin-top:6px;text-align:center"></div>
+    <div class="set-field" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+      <span class="lbl" data-i18n="build_label">Версія застосунку</span>
+      <div class="ctl"><b id="build-ver" style="color:var(--fg);font-size:12px">__BUILD_VER__</b></div>
+    </div>
+    <div class="card-actions">
+      <button id="force-update-btn" class="btn primary" data-i18n="force_update">↻ Оновити застосунок</button>
+    </div>
+    <div class="stat" id="force-stat" style="margin-top:6px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="danger">⚠ Danger</h2>
+    <div class="card-actions">
+      <button id="wipe-btn" class="btn danger" data-i18n="wipe">Видалити всі дані на сервері</button>
+    </div>
+    <div class="stat" id="wipe-stat" style="margin-top:6px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="server">Сервер</h2>
+    <div class="muted" style="word-break:break-all">URL: <a id="srv-link" href="#" style="color:var(--accent)" target="_blank">…</a></div>
+  </div>
+</div>
+

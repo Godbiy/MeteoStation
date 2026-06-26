@@ -1,0 +1,60 @@
+<!-- ============ STATUS ============ -->
+<div class="page" id="page-status">
+  <div class="card">
+    <h2 data-i18n="current_state">Поточний стан модуля</h2>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <div id="st-icon"><svg class="ic"><use href="#ic-status"/></svg></div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:18px;font-weight:700" id="st-name">—</div>
+        <div class="muted" style="font-size:12px;margin-top:2px" id="st-desc">—</div>
+      </div>
+      <div style="text-align:right">
+        <div class="muted" style="font-size:11px" data-i18n="next_event">наступна подія</div>
+        <div style="font-size:24px;font-weight:700;font-feature-settings:'tnum'" id="st-countdown">—</div>
+      </div>
+    </div>
+    <!-- Progress bar through cycle -->
+    <div style="margin-top:10px;background:var(--panel2);border-radius:5px;height:10px;overflow:hidden;border:1px solid var(--line)">
+      <div id="st-progress" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--ok));width:0%;transition:width 1s linear"></div>
+    </div>
+    <div class="row-gap" style="margin-top:6px;font-size:11px;color:var(--mut)">
+      <span id="st-last-post">last —</span>
+      <span style="margin-left:auto" id="st-next-post">next —</span>
+    </div>
+    <!-- Cycle sync banner: configured (intended) vs observed (server log median). -->
+    <div id="st-cycle-sync" style="margin-top:10px;padding:8px 10px;border-radius:5px;font-size:12px;display:none"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="state_timeline">Робочий цикл</h2>
+    <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="state_hint">
+      Прошивка послідовно проходить ці стани. Поточний підсвічений.
+    </div>
+    <div id="st-machine" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="pending_changes">⏳ Pending changes</h2>
+    <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="pending_hint">
+      Зміни (інтервал/live) застосовуються на наступному POST модуля. Тут видно статус.
+    </div>
+    <div id="pending-list"></div>
+    <div class="muted" id="pending-empty" style="text-align:center;padding:10px;font-size:12px">
+      <span data-i18n="no_pending">немає очікуваних змін</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span data-i18n="network">🌐 Network · last requests</span> <span class="meta" id="netlog-total"></span></h2>
+    <table class="stats netlog" style="font-size:11px">
+      <thead><tr><th>URL</th><th>Status</th><th>Size</th><th>Time</th></tr></thead>
+      <tbody id="netlog-body"><tr><td colspan="4" style="text-align:center;color:var(--mut)">— no requests —</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="raw_config">Серверний config</h2>
+    <div id="st-raw-config" class="kv-list">—</div>
+  </div>
+</div>
+

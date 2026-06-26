@@ -1,0 +1,151 @@
+<!-- ============ LIVE ============ -->
+<div class="page active" id="page-live">
+  <div class="live-top">
+    <!-- compass -->
+    <div class="gauge-card">
+      <div class="ttl" data-i18n="wind_direction">Напрямок вітру</div>
+      <svg viewBox="0 0 220 220" width="100%" height="220" style="max-width:220px">
+        <defs>
+          <radialGradient id="cbg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#1a2030"/><stop offset="70%" stop-color="#0d1117"/><stop offset="100%" stop-color="#000"/>
+          </radialGradient>
+          <linearGradient id="n-n" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff6b6b"/><stop offset="100%" stop-color="#c92a2a"/></linearGradient>
+          <linearGradient id="n-s" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#495057"/><stop offset="100%" stop-color="#212529"/></linearGradient>
+        </defs>
+        <text x="110" y="14"  text-anchor="middle" fill="#ff5252" font-size="14" font-weight="800">N</text>
+        <text x="110" y="214" text-anchor="middle" fill="#adb5bd" font-size="12" font-weight="700">S</text>
+        <text x="10"  y="114" text-anchor="middle" fill="#adb5bd" font-size="12" font-weight="700">W</text>
+        <text x="210" y="114" text-anchor="middle" fill="#adb5bd" font-size="12" font-weight="700">E</text>
+        <text x="180" y="44"  text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">NE</text>
+        <text x="180" y="186" text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">SE</text>
+        <text x="40"  y="186" text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">SW</text>
+        <text x="40"  y="44"  text-anchor="middle" fill="#6c757d" font-size="9" font-weight="600">NW</text>
+        <circle cx="110" cy="110" r="92" fill="none" stroke="var(--line)" stroke-width="1"/>
+        <circle cx="110" cy="110" r="90" fill="url(#cbg)" stroke="#2a3140" stroke-width="2"/>
+        <g id="cticks"></g>
+        <circle cx="110" cy="110" r="58" fill="none" stroke="#2a3140" stroke-width="1" stroke-dasharray="2 3"/>
+        <g id="arrow-grp" transform="rotate(0 110 110)" style="transition:transform .35s cubic-bezier(.34,1.56,.64,1);opacity:.3">
+          <polygon points="110,28 102,110 118,110" fill="url(#n-n)" stroke="#a01818" stroke-width=".5"/>
+          <polygon points="110,192 102,110 118,110" fill="url(#n-s)" stroke="#0a0a0a" stroke-width=".5"/>
+          <circle cx="110" cy="110" r="8" fill="#2a3140" stroke="#5a6470" stroke-width="1.5"/>
+          <circle cx="110" cy="110" r="3" fill="#adb5bd"/>
+        </g>
+      </svg>
+      <div style="font-size:24px;font-weight:700;margin-top:6px"><span id="t-dir">—</span><span class="muted" style="font-size:14px;font-weight:400;margin-left:8px" id="t-dir-deg">— °</span></div>
+    </div>
+    <!-- speedometer -->
+    <div class="gauge-card">
+      <div class="ttl" data-i18n="wind_speed">Швидкість вітру</div>
+      <svg viewBox="0 0 220 140" width="100%" height="140" style="max-width:220px">
+        <defs>
+          <linearGradient id="sgrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#3fb950"/><stop offset="40%" stop-color="#56d364"/><stop offset="60%" stop-color="#d29922"/><stop offset="85%" stop-color="#f0883e"/><stop offset="100%" stop-color="#f85149"/></linearGradient>
+          <radialGradient id="hub" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#adb5bd"/><stop offset="60%" stop-color="#495057"/><stop offset="100%" stop-color="#1a1f25"/></radialGradient>
+        </defs>
+        <path d="M 30 115 A 80 80 0 0 1 190 115" fill="none" stroke="#1a2030" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 30 115 A 80 80 0 0 1 190 115" fill="none" stroke="url(#sgrad)" stroke-width="14" stroke-linecap="round" opacity=".22"/>
+        <path id="spd-arc" d="M 30 115 L 30 115" fill="none" stroke="url(#sgrad)" stroke-width="14" stroke-linecap="round"/>
+        <g id="sticks"></g>
+        <text id="spd-t0" x="22"  y="135" text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">0</text>
+        <text id="spd-t1" x="55"  y="42"  text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">25</text>
+        <text id="spd-t2" x="110" y="22"  text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">50</text>
+        <text id="spd-t3" x="165" y="42"  text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">75</text>
+        <text id="spd-t4" x="198" y="135" text-anchor="middle" fill="var(--mut)" font-size="9" font-weight="600">100</text>
+        <g id="spd-needle" transform="rotate(-90 110 115)" style="transition:transform .35s cubic-bezier(.34,1.56,.64,1)">
+          <polygon points="110,40 106,115 114,115" fill="#f85149"/>
+          <polygon points="110,115 104,123 116,123" fill="#5a6470"/>
+        </g>
+        <circle cx="110" cy="115" r="9" fill="url(#hub)" stroke="#000" stroke-width=".5"/>
+        <circle cx="110" cy="115" r="3" fill="#adb5bd"/>
+      </svg>
+      <div style="font-size:30px;font-weight:700;line-height:1;margin-top:6px"><span id="t-kmh">—</span><span class="trend" id="t-kmh-trend"></span><span id="t-kmh-unit" class="muted" style="font-size:13px;font-weight:600;margin-left:6px;letter-spacing:1px">km/h</span></div>
+      <div class="muted" style="font-size:11px;margin-top:4px"><span id="t-pps">—</span> imp/s</div>
+    </div>
+  </div>
+
+  <div class="nums">
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-battery"/></svg> <span data-i18n="battery">Батарея</span></div>
+      <div class="v" id="t-batt"><span id="t-batt-v">—</span><span style="font-size:13px;color:var(--mut)"> V</span><span class="trend" id="t-batt-trend"></span></div>
+      <div class="s"><span id="t-batt-pct">—%</span> · <span id="t-batt-mv">— mV</span></div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-sun"/></svg> <span data-i18n="solar">Сонце</span></div>
+      <div class="v" id="t-solar">—<span style="font-size:13px;color:var(--mut)"> V</span></div>
+      <div class="s" id="t-solar-sub">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-signal"/></svg> <span data-i18n="signal">Сигнал</span></div>
+      <div class="v" id="t-csq">—</div>
+      <div class="s" id="t-csq-sub">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-cycle"/></svg> <span data-i18n="cycle">Цикл</span></div>
+      <div class="v" id="t-cycle" style="font-size:15px">—</div>
+      <div class="s" id="t-cycle-cfg">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-clock"/></svg> <span data-i18n="updated">Оновлено</span></div>
+      <div class="v" id="t-age" style="font-size:14px">—</div>
+      <div class="s" id="t-ts">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-status"/></svg> <span data-i18n="uptime_live">Аптайм</span></div>
+      <div class="v" id="t-uptime" style="font-size:15px">—</div>
+      <div class="s" data-i18n="since_boot">від останнього вкл.</div>
+    </div>
+  </div>
+
+  <div class="nums" style="margin-top:10px">
+    <div class="cell pwr-cell">
+      <svg class="ic pwr-ic" id="t-reserve-ic"><use href="#ic-battery"/></svg>
+      <div class="v" id="t-reserve">—<span style="font-size:13px;color:var(--mut)"> mAh</span></div>
+      <div class="s" id="t-reserve-sub" data-i18n="reserve">запас</div>
+    </div>
+    <div class="cell pwr-cell">
+      <svg class="ic pwr-ic" id="t-theory-ic"><use href="#ic-sun"/></svg>
+      <div class="v" id="t-theory">—<span style="font-size:13px;color:var(--mut)"> mAh</span></div>
+      <div class="s" id="t-theory-sub" data-i18n="theory">теоретична /год</div>
+    </div>
+    <div class="cell pwr-cell">
+      <svg class="ic pwr-ic" id="t-perhour-ic"><use href="#ic-up"/></svg>
+      <div class="v" id="t-perhour">—<span style="font-size:13px;color:var(--mut)"> mAh</span></div>
+      <div class="s" id="t-perhour-sub" data-i18n="actual">фактична /год</div>
+    </div>
+  </div>
+
+  <div class="nums" style="margin-top:10px">
+    <div class="cell">
+      <div class="l" data-i18n="beaufort">Beaufort scale</div>
+      <div class="v" id="t-bf" style="font-size:15px">—</div>
+      <div class="s" id="t-bf-num">—</div>
+    </div>
+    <div class="cell">
+      <div class="l" data-i18n="gust_factor">Gust factor (1h)</div>
+      <div class="v" id="t-gust">—</div>
+      <div class="s" id="t-gust-sub">—</div>
+    </div>
+    <div class="cell">
+      <div class="l" data-i18n="dir_stability">Стабільність (1h)</div>
+      <div class="v" id="t-stab" style="font-size:15px">—</div>
+      <div class="s" id="t-stab-sub">—</div>
+    </div>
+  </div>
+
+  <div class="card lite-hide">
+    <h2><span data-i18n="speed_last_hour">Швидкість + напрямок за годину</span> <span class="meta" id="live-wt-meta"></span></h2>
+    <div class="row-gap" style="margin:-2px 0 8px;font-size:11px;color:var(--mut);align-items:center">
+      <span data-i18n="smooth">згладження</span>
+      <select id="smooth-sel-live" style="font-size:11px;padding:2px 4px">
+        <option value="0">raw</option>
+        <option value="5">10s</option>
+        <option value="15">30s</option>
+        <option value="30" selected>1m</option>
+        <option value="150">5m</option>
+        <option value="450">15m</option>
+        <option value="0" data-mean="1">avg/POST</option>
+      </select>
+    </div>
+    <svg id="chart-live-wt" viewBox="0 0 600 220" style="width:100%;height:220px"></svg>
+  </div>
+</div>
+

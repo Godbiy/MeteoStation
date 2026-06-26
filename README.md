@@ -12,8 +12,9 @@ alerts.
 src/Meteo/       PHP library, one class per file: Server (pure router), Api (station POST +
                  history/config), Store (persistence), Payload (binary decode + CRC),
                  WebPush (VAPID), Ui (dashboard/PWA), Admin (edit).
-src/ui/          dashboard.html + dashboard.css + dashboard.js (split), sw.js, manifest.json —
-                 served from disk via ?ui=1 / ?asset=NAME / ?sw=1 / ?manifest=1
+src/ui/          Frontend split into one-concern-per-file fragments the server ASSEMBLES on
+                 serve (no build): html/page.NN.*.html (shell), css/app.NN.*.css, js/app.NN.*.js,
+                 plus sw.js, manifest.json. Served via ?ui=1 / ?asset=NAME / ?sw=1 / ?manifest=1
 firmware/        AVR firmware (C). main.c = non-blocking state machine; gsm.c, sensor.c,
                  power.c, dbgUart.c (soft-UART debug). config.h = all build flags.
 firmware/probes/ standalone hardware bring-up sketches (gitignored)

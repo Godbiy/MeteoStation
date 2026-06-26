@@ -20,9 +20,14 @@ push() { curl -s -X POST -H "$H" --data-binary "@$1" "$URL?edit=1${2:+&$2}&key=$
 echo "== library (src/Meteo -> FILE_DIR/src/Meteo) =="
 for f in src/Meteo/*.php; do n=$(basename "$f"); printf '  %-14s' "$n"; push "$f" "file=$n&src"; done
 
-echo "== UI assets + config (-> FILE_DIR) =="
-for f in src/ui/*; do n=$(basename "$f"); printf '  %-14s' "$n"; push "$f" "file=$n"; done
-printf '  %-14s' config.php; push server/config.php "file=config.php"
+echo "== UI parts + assets (-> FILE_DIR, flat) =="
+# The shell/css/js are split into sortable fragments (page.NN.*.html, app.NN.*.css/js)
+# that Ui.php assembles on serve. The ?edit endpoint writes flat (basename only), so the
+# part names are flat + globbable. sw.js + manifest.json are whole files.
+for f in src/ui/html/* src/ui/css/* src/ui/js/* src/ui/sw.js src/ui/manifest.json; do
+  n=$(basename "$f"); printf '  %-22s' "$n"; push "$f" "file=$n"
+done
+printf '  %-22s' config.php; push server/config.php "file=config.php"
 
 echo "== bootstrap (-> the endpoint file itself) =="
 printf '  %-14s' meteo.php;      push server/meteo.php

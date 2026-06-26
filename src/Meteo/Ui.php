@@ -14,46 +14,85 @@ final class Ui
         $this->editKey = ($cfg['EDIT_KEY'] ?? '') ?: "\0";
     }
 
-    /* GET ?ui=1 -- serve the dashboard from FILE_DIR. __BUILD_VER__ is stamped from the file
-     * mtime; __EDIT_KEY__ is filled so the dashboard's admin calls authenticate. */
-    public function handleUi(): void { $this->serveUi('dashboard.html'); }
-    private function serveUi(string $name): void
+    /* The UI is kept on disk as SPLIT, name-sorted fragments (one concern per file), the same
+     * way the PHP library is one-class-per-file. There's no build step: the server ASSEMBLES
+     * them on each request. The web root can't hold sub-dirs (the ?edit endpoint writes flat,
+     * basename-only), so the parts are flat with sortable names:
+     *   page.NN.*.html  -> the dashboard shell      (?ui=1)
+     *   app.NN.*.css    -> ?asset=dashboard.css
+     *   app.NN.*.js     -> ?asset=dashboard.js
+     * glob()+sort() concatenation is byte-identical to the old monolith, so behaviour is
+     * unchanged. Everything is served no-store (assembled fresh every time → no stale cache;
+     * the network-first service worker keeps a copy only as the offline fallback). */
+    private const PARTS = ['html' => 'page.*.html', 'css' => 'app.*.css', 'js' => 'app.*.js'];
+
+    private function assemble(string $glob): ?string
+    {
+        $files = glob($this->fileDir . '/' . $glob);
+        if (!$files) return null;
+        sort($files);                                  /* name order = load order (NN prefix) */
+        return implode('', array_map(fn($f) => (string)@file_get_contents($f), $files));
+    }
+    private function newestMtime(array $globs): int
+    {
+        $m = 0;
+        foreach ($globs as $g) foreach (glob($this->fileDir . '/' . $g) ?: [] as $f) $m = max($m, (int)@filemtime($f));
+        return $m;
+    }
+    private function buildVer(): string
+    {
+        $m = $this->newestMtime(self::PARTS) ?: (@filemtime($this->fileDir . '/dashboard.html') ?: time());
+        return gmdate('Y-m-d H:i', $m) . ' UTC';
+    }
+    private function stamp(string $s): string
+    {
+        return str_replace(['__BUILD_VER__', '__EDIT_KEY__'], [$this->buildVer(), $this->editKey], $s);
+    }
+
+    /* GET ?ui=1 -- assemble the dashboard shell from page.*.html (falls back to a monolith
+     * dashboard.html if no parts are deployed). __EDIT_KEY__ is filled so the dashboard's
+     * admin calls authenticate; __BUILD_VER__ shows the newest fragment mtime. */
+    public function handleUi(): void
     {
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-store');
-        $f = $this->fileDir . '/' . $name;
-        if (!is_file($f)) { http_response_code(503); echo "not deployed: $name (push via ?edit&file=$name)"; return; }
-        $ver = gmdate('Y-m-d H:i', @filemtime($f) ?: time()) . ' UTC';
-        echo str_replace(['__BUILD_VER__', '__EDIT_KEY__'], [$ver, $this->editKey], (string)file_get_contents($f));
+        $html = $this->assemble(self::PARTS['html']) ?? @file_get_contents($this->fileDir . '/dashboard.html');
+        if ($html === false || $html === null) { http_response_code(503); echo "not deployed (push the UI parts via deploy.sh)"; return; }
+        echo $this->stamp((string)$html);
     }
 
-    /* GET ?asset=NAME -- serve a split UI asset (dashboard.js / dashboard.css) from FILE_DIR,
-     * with the same token fill-in as the shell. no-cache; the service worker precaches these
-     * for offline. */
+    /* GET ?asset=NAME -- dashboard.css / dashboard.js are ASSEMBLED from their app.*.css /
+     * app.*.js fragments; any other whitelisted asset (e.g. manifest.json) is served as-is.
+     * Same token fill-in as the shell. no-store; the service worker precaches for offline. */
     public function handleAsset(): void
     {
         $name = basename((string)($_GET['asset'] ?? ''));
         if (!preg_match('/^[A-Za-z0-9_.-]+\.(js|css|json)$/', $name)) { http_response_code(400); echo "bad asset"; return; }
-        $f = $this->fileDir . '/' . $name;
-        if (!is_file($f)) { http_response_code(404); echo "not found: $name"; return; }
         $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $type = ['js' => 'text/javascript', 'css' => 'text/css', 'json' => 'application/json'][$ext] ?? 'text/plain';
+        $body = $name === 'dashboard.css' ? $this->assemble(self::PARTS['css'])
+              : ($name === 'dashboard.js' ? $this->assemble(self::PARTS['js']) : null);
+        if ($body === null) {
+            $f = $this->fileDir . '/' . $name;
+            if (!is_file($f)) { http_response_code(404); echo "not found: $name"; return; }
+            $body = (string)file_get_contents($f);
+        }
         header('Content-Type: ' . $type . '; charset=utf-8');
-        header('Cache-Control: no-cache');
-        $ver = gmdate('Y-m-d H:i', @filemtime($f) ?: time()) . ' UTC';
-        echo str_replace(['__BUILD_VER__', '__EDIT_KEY__'], [$ver, $this->editKey], (string)file_get_contents($f));
+        header('Cache-Control: no-store');
+        echo $this->stamp($body);
     }
 
     /* GET ?dl_html=1 -- serve the deployed dashboard HTML as a downloadable file. */
     public function handleDownloadHtml(): void
     {
-        $html = @file_get_contents($this->fileDir . '/dashboard.html');
-        if ($html === false) {
+        $html = $this->assemble(self::PARTS['html']) ?? @file_get_contents($this->fileDir . '/dashboard.html');
+        if ($html === false || $html === null) {
             http_response_code(404);
             header('Content-Type: text/plain');
             echo "dashboard not deployed\n";
             return;
         }
+        $html = $this->stamp((string)$html);
         header('Content-Type: text/html; charset=utf-8');
         header('Content-Disposition: attachment; filename="MeteoDashboard.html"');
         header('Cache-Control: no-store');
@@ -67,13 +106,9 @@ final class Ui
         header('Content-Type: application/javascript; charset=utf-8');
         header('Service-Worker-Allowed: ./');
         header('Cache-Control: no-cache');
-        /* Cache name = newest of the precached assets, so changing dashboard.js or .css alone
-         * (not just .html) still bumps the SW → old cache dropped, fresh assets re-fetched. */
-        $ver = 'meteo-' . max(
-            @filemtime($this->fileDir . '/dashboard.html') ?: 1,
-            @filemtime($this->fileDir . '/dashboard.js') ?: 1,
-            @filemtime($this->fileDir . '/dashboard.css') ?: 1
-        );
+        /* Cache name = newest of all UI fragments, so changing any css/js/html part bumps the
+         * SW → old cache dropped, fresh assets re-fetched. */
+        $ver = 'meteo-' . ($this->newestMtime(self::PARTS) ?: (@filemtime($this->fileDir . '/dashboard.html') ?: 1));
         echo str_replace('__SW_CACHE__', $ver, (string)@file_get_contents($this->fileDir . '/sw.js'));
         exit;
     }

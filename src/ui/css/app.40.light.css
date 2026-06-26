@@ -1,0 +1,108 @@
+/* ===== Sunlight: high-contrast LIGHT theme for reading in direct sun ===== */
+body.sunlight{
+  color-scheme:light;   /* native calendar / select dropdown / inputs follow the light theme */
+  --bg:#e6eaef;--panel:#ffffff;--panel2:#eef1f5;--fg:#0a0c10;--mut:#4b535c;--line:#c2cad3;--field:#fff;
+  --ok:#1a7f37;--warn:#8a6500;--err:#cf222e;--accent:#0969da;--purple:#8250df;
+  --hover:#e4e9ef;--card-shadow:0 1px 3px rgba(140,150,165,.5);
+}
+body.sunlight .gauge-card{background:linear-gradient(135deg,#fff 0%,#e7edf4 100%)}
+/* faint sky-blue chart accents are too low-contrast on white → darken them */
+body.sunlight [stroke="#79c0ff"]{stroke:#2f7fe0}
+body.sunlight [fill="#79c0ff"]{fill:#2f7fe0}
+body.sunlight [stroke="#58d3ff"]{stroke:#1a86cf}
+body.sunlight [fill="#58d3ff"]{fill:#1a86cf}
+/* text on saturated buttons needs to flip to white in light theme */
+body.sunlight .btn.primary,body.sunlight .btn.ok,body.sunlight .btn.active,
+body.sunlight .lang-btn.active,body.sunlight .seg-btn.active,
+body.sunlight .zoom-reset-all{color:#fff}
+/* overlay chips that were hardcoded dark */
+body.sunlight .fs-btn{background:rgba(255,255,255,.82);color:var(--mut)}
+body.sunlight .zoom-info{background:rgba(255,255,255,.9)}
+/* gauges: light faces + darker labels (dark ticks/needle read fine on light) */
+body.sunlight #cbg stop{stop-color:#eef2f7}
+body.sunlight #cbg stop:last-child{stop-color:#d7dee7}
+body.sunlight .gauge-card path[stroke="#1a2030"]{stroke:#e1e8ef}
+body.sunlight .gauge-card text[fill="#adb5bd"]{fill:#3d444d}
+body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
+
+/* settings rows: label + segmented control, comfy touch targets */
+.set-row{display:flex;flex-direction:column;align-items:stretch;gap:7px;margin:14px 0}
+.set-row>.set-lbl{font-size:13px;color:var(--fg);font-weight:600}   /* label sits ABOVE its control */
+.set-row select{width:100%}
+.seg{display:flex;gap:6px;width:100%}
+.seg>.seg-btn,.seg>.lang-btn{flex:1 1 0;justify-content:center}   /* full-width segmented control, equal buttons */
+.seg-btn{background:var(--panel2);color:var(--fg);border:1px solid var(--line);padding:9px 13px;border-radius:7px;font:inherit;font-size:13px;cursor:pointer;min-height:42px;display:inline-flex;align-items:center;gap:5px}
+.seg-btn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.set-row .lang-btn{padding:9px 14px;font-size:13px;min-height:42px}
+/* binary settings: label on the left, iOS-style toggle on the right (one line) */
+.set-row.toggle{flex-direction:row;align-items:center;justify-content:space-between;gap:12px}
+.set-row.toggle>.set-lbl{flex:1 1 auto}
+.sw-wrap{display:inline-flex;align-items:center;gap:8px;flex:none}
+.sw-wrap>.sw-ico{width:16px;height:16px;color:var(--mut);transition:color .18s}
+.switch{position:relative;display:inline-flex;flex:none;cursor:pointer}
+.switch input{position:absolute;opacity:0;width:0;height:0;margin:0}
+.switch .track{width:46px;height:26px;border-radius:13px;background:var(--panel2);border:1px solid var(--line);display:inline-flex;align-items:center;padding:0 2px;transition:background .18s,border-color .18s}
+.switch .knob{width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.35);transition:transform .18s}
+.switch input:checked + .track{background:var(--accent);border-color:var(--accent)}
+.switch input:checked + .track .knob{transform:translateX(20px)}
+.switch input:focus-visible + .track{outline:2px solid var(--accent);outline-offset:2px}
+/* theme switch: dim the inactive side glyph (moon=dark on the left, sun=light on the right) */
+.sw-wrap:has(input:checked) .sw-ico.sun,.sw-wrap:not(:has(input:checked)) .sw-ico.moon{color:var(--accent)}
+/* in-app confirm dialog (native confirm() is suppressed in standalone PWAs) */
+.cfm{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:24px}
+.cfm[hidden]{display:none}
+.cfm-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.cfm-msg{color:var(--fg);font-size:14px;line-height:1.45;margin-bottom:16px}
+.cfm-actions{display:flex;gap:8px;justify-content:flex-end}
+/* ---- settings: tidy labelled fields + full-width touch action bar ---- */
+.set-field{display:flex;flex-direction:column;align-items:stretch;gap:7px;margin:14px 0}
+.set-field>.lbl{font-size:13px;color:var(--fg);font-weight:600}   /* label above, full-width control below */
+.set-field .ctl{display:flex;align-items:center;gap:6px;width:100%}
+.set-field .ctl .unit{font-size:12px;color:var(--mut);min-width:32px;text-align:right}
+/* input + unit read as one control (the unit sits inside the field, not floating beside it) */
+.set-field .ctl:has(.unit){border:1px solid var(--line);background:var(--field);border-radius:5px;gap:0;padding-right:10px;width:100%}
+.set-field .ctl:has(.unit):focus-within{border-color:var(--accent)}
+.set-field .ctl:has(.unit) input[type=number]{border:none;background:transparent;flex:1 1 auto;width:auto;text-align:left}
+.set-field input[type=number]{min-height:44px;font-size:15px;width:100%;text-align:left}
+.set-field .ctl select,.set-field select{min-height:44px;font-size:15px;width:100%}
+.set-field.full select{width:100%}
+/* validation states + helper/error text below a field (Bootstrap-style) */
+.set-field.error :is(input,select),.set-field.error .ctl:has(.unit),.set-row.error select{border-color:var(--err)}
+.field-help{font-size:12px;color:var(--mut);margin-top:2px}
+.field-err{font-size:12px;color:var(--err);margin-top:2px}
+.set-note{font-size:11px;color:var(--mut);margin:2px 0 0}
+.kv-list{display:flex;flex-direction:column;background:var(--panel2);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 10px;font-size:12px}
+.kv:nth-child(even){background:rgba(127,127,127,.05)}
+.kv .k{color:var(--mut)}
+.kv .v{font-family:ui-monospace,monospace;color:var(--fg);text-align:right;word-break:break-all}
+.card-actions{display:flex;gap:8px;margin-top:14px}
+.card-actions .btn{flex:1;min-height:48px;font-size:15px;padding:12px;justify-content:center;display:inline-flex;align-items:center;gap:6px;border-radius:7px}
+.al-type{display:flex;flex-direction:column;gap:7px;padding:10px 0;font-size:13px;border-bottom:1px solid var(--line)}
+.al-type:last-child{border-bottom:none}
+.al-head{display:flex;align-items:center;gap:9px;cursor:pointer}
+.al-head>span{font-weight:600;color:var(--fg)}
+.al-head input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;accent-color:var(--accent)}
+.al-type .ctl{display:flex;align-items:center;width:100%;border:1px solid var(--line);background:var(--field);border-radius:5px;padding-right:10px}
+.al-type .ctl:focus-within{border-color:var(--accent)}
+.al-type .ctl input[type=number]{border:none;background:transparent;flex:1 1 auto;width:auto;min-height:40px;font-size:14px;text-align:left;padding:6px 8px}
+.al-type .ctl .unit{font-size:12px;color:var(--mut);min-width:30px;text-align:right}
+.dev-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:7px}
+.dev-row.me{border-color:var(--accent)}
+.dev-row .dev-meta{flex:1 1 auto;min-width:0}
+.dev-row .dev-title{font-weight:600;color:var(--fg)}
+.dev-row .dev-sub{color:var(--mut);font-size:11px;margin-top:1px}
+.dev-row .dev-del{flex:0 0 auto;min-height:36px;padding:6px 10px}
+
+/* calibration capture grid + live byte bits */
+.cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.cbtn{padding:12px 4px;text-align:center;border-radius:6px;background:var(--panel2);border:1px solid var(--line);cursor:pointer;font:inherit;color:var(--fg);transition:background .15s;min-height:56px}
+.cbtn.set{background:var(--ok);color:#000;border-color:var(--ok)}
+body.sunlight .cbtn.set{color:#fff}
+.cbtn .d{font-size:15px;font-weight:700}
+.cbtn .b{font-size:10px;opacity:.8;margin-top:2px}
+.bits{display:flex;gap:4px;flex-wrap:wrap}
+.bit{width:24px;height:24px;border:1px solid var(--line);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--mut);background:var(--panel2)}
+.bit.on{background:var(--ok);color:#000;border-color:var(--ok)}
+.bit.zero{background:var(--err);color:#fff;border-color:var(--err)}
+
