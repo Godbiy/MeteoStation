@@ -3619,6 +3619,7 @@ $('test-toggle').addEventListener('click', () => {
   $('test-banner').classList.toggle('on', testMode);
   $('test-toggle').classList.toggle('active', testMode);
   $('test-toggle').textContent = testMode ? '🧪 Test ON' : '🧪 Test';
+  $('test-toggle-2')?.classList.toggle('active', testMode);   /* settings toggle reflects the on/off state */
   if (testMode){
     stopPoll();
     tickIdx = 0;

@@ -276,6 +276,9 @@ body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
 .set-field>.lbl{font-size:13px;color:var(--mut);flex:1 1 auto}
 .set-field .ctl{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .set-field .ctl .unit{font-size:12px;color:var(--mut);min-width:32px}
+/* input + unit read as one control (the unit sits inside the field, not floating beside it) */
+.set-field .ctl:has(.unit){border:1px solid var(--line);background:var(--panel2);border-radius:5px;gap:0;padding-right:9px}
+.set-field .ctl:has(.unit) input[type=number]{border:none;background:transparent}
 .set-field input[type=number]{min-height:44px;font-size:15px;width:104px;text-align:right}
 .set-field select{min-height:44px;font-size:15px}
 .set-field.full select{width:100%}
