@@ -12,10 +12,12 @@ Fuses (low-power, BOD disabled):
 ## Repo layout
 
 ```
+src/Meteo/  PHP library, 1 class/file: Server, Store, Payload, WebPush, Ui, Admin (namespace Meteo).
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
             firmware/probes/ = bring-up sketches (gitignored)
-server/     meteo.php (backend), dashboard.html, serial.html, build_combined_php.py,
-            config.example.json   (config.json, *_combined.php, test_ci.py are gitignored)
+server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, dashboard.html, serial.html,
+            config.example.php   (config.php, test_ci.py gitignored)
+examples/   standalone/ = ready-to-run server for a normal PHP host (index.php + .htaccess)
 docs/       A7672E datasheets, PCB schematic JSON + viewers, avr_cheatsheet.md
 build/      firmware outputs (gitignored)
 ```
@@ -41,14 +43,17 @@ to watch the state machine / AT trace live.
 
 ## Server / Dashboard (PHP + HTML)
 
-`server/` holds the backend the module POSTs to and the operator dashboard:
+The backend is the **`Meteo\*` library** in `src/Meteo/` (one class per file): `Server` (router +
+station POST + history/config API), `Store` (all file IO), `Payload` (binary decode + CRC),
+`WebPush` (VAPID), `Ui` (dashboard/serial/PWA), `Admin` (key-gated edit/restore/wipe/gen_demo).
 
-- `meteo.php` — backend, class **`Meteo`** (POST handler, history, config endpoints, calibration, web push). A 1-line `class_alias(… '\\TestKurwa')` at the bottom keeps the host's framework routing to the `…/TestKurwa` endpoint working; for a plain host drop it and call `new Meteo();`.
-- `dashboard.html` — operator UI (live, history, status, settings, calibration)
-- `serial.html` — Web-Serial calibration UI (vane + speed factor)
-- `deploy.sh` — pushes `meteo.php` + UI + `config.php` to the host (**no build step**). The UI and secrets live in `FILE_DIR` (a host dir the web user can write, e.g. `/st/petro/tmp/meteo`) and are read at runtime; `meteo.php` serves the dashboard from there at `?ui=1`.
-- `config.example.php` → copy to `config.php` (gitignored): `EDIT_KEY` + VAPID keys. Pushed to `FILE_DIR` and `require`d at runtime — never in git.
-- `test_ci.py` — Playwright UI/endpoint suite (gitignored)
+- `server/meteo.php` — **thin bootstrap** for the stelnet host: defines class `TestKurwa` (the path the framework routes to), autoloads `Meteo\*` from `FILE_DIR/src/Meteo`, and runs `(new \Meteo\Server($cfg))->handle()`. The web root can't take new files, so the library + UI + config all live in `FILE_DIR` (`/st/petro/tmp/meteo`, chmod 777).
+- `dashboard.html` / `serial.html` — operator UI / Web-Serial calibration UI.
+- `deploy.sh` — **no build step**: pushes `src/Meteo/*.php` (`?edit&file=X.php&src`), UI, and `config.php` into `FILE_DIR`, then the bootstrap to itself (`?edit`). Re-run after any edit.
+- `config.example.php` → copy to `config.php` (gitignored): `EDIT_KEY` + VAPID keys, `require`d at runtime from `FILE_DIR`. Never in git.
+- `examples/standalone/` — the same library wired for a normal host (no FILE_DIR trick).
+- `test_ci.py` — Playwright UI/endpoint suite (gitignored).
+- Lockout recovery: `php FILE_DIR/src/Meteo/smoke.php` validates the library loads; `?restore=1&key=` or a shell `cp …/TestKurwa.php.bak` restores the bootstrap.
 
 ### Deploy
 

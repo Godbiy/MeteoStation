@@ -1,0 +1,16 @@
+# Route every non-file request to index.php (firmware POSTs to the dir root; ?ui=1 etc.).
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]
+DirectoryIndex index.php
+
+# Never serve secrets or runtime data over HTTP.
+<FilesMatch "^config\.php$">
+  Require all denied
+</FilesMatch>
+RedirectMatch 403 (^|/)(data|src)(/|$)
+
+# Compress text responses.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE application/json application/javascript application/manifest+json text/html text/plain image/svg+xml
+</IfModule>

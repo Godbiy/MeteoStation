@@ -9,15 +9,14 @@ alerts.
 ## Repo layout
 
 ```
+src/Meteo/       PHP library, one class per file: Server (router), Store (persistence),
+                 Payload (binary decode + CRC), WebPush (VAPID), Ui (dashboard/PWA), Admin (edit).
 firmware/        AVR firmware (C). main.c = non-blocking state machine; gsm.c, sensor.c,
                  power.c, dbgUart.c (soft-UART debug). config.h = all build flags.
 firmware/probes/ standalone hardware bring-up sketches (gitignored)
-server/          meteo.php          backend (POST receiver, history, config, push; serves UI)
-                 dashboard.html     operator UI (served from disk at ?ui=1)
-                 serial.html        Web-Serial calibration page (?ui_serial=1)
-                 deploy.sh          push meteo.php + UI + config to the host (no build step)
-                 config.example.php copy to config.php (gitignored) and fill secrets
-                 test_ci.py         Playwright UI/endpoint tests (gitignored)
+server/          stelnet host adapter: meteo.php (thin bootstrap), deploy.sh, dashboard.html,
+                 serial.html, config.example.php  (config.php + test_ci.py gitignored)
+examples/        standalone/ — ready-to-run server for a normal PHP host (index.php + .htaccess)
 docs/            datasheets (A7672E), PCB/schematic JSON + viewers, AVR cheatsheet
 build/           firmware build outputs (gitignored)
 ```
@@ -50,9 +49,11 @@ Key flags in `firmware/config.h`: `FAST_TEST_MODE`, `DEBUG_SENSOR_ONLY`, `DEBUG_
 
 ## Server — deploy
 
-The backend is a single PHP class (`Meteo`). There is **no build step**: `meteo.php` deploys
-as-is, and the dashboard/serial UI + secrets are served from a host directory (`FILE_DIR`) at
-runtime.
+The backend is the `Meteo\*` library in [`src/Meteo`](src/Meteo). There is **no build step**.
+On the stelnet host, `server/meteo.php` is a thin bootstrap that autoloads the library from
+`FILE_DIR/src/Meteo` and runs it; the library, UI, and secrets are served from `FILE_DIR` at
+runtime (the web root can't take new files). For a normal host, see
+[`examples/standalone`](examples/standalone) instead.
 
 ```bash
 # 1. one-time on the host — a dir the web user can write to (the web root usually can't
@@ -67,16 +68,17 @@ cp server/config.example.php server/config.php      # then edit EDIT_KEY + VAPID
 ```
 
 `deploy.sh` reads `EDIT_KEY` from `config.php` and POSTs each file to the self-edit endpoint:
-`meteo.php` overwrites itself (`?edit=1`, with a `php -l` check + `.bak`), while
-`dashboard.html` / `serial.html` / `config.php` are written into `FILE_DIR`
-(`?edit=1&file=NAME`) and read at runtime (`?ui=1` serves the dashboard, secrets via
-`require`). Edit a file → re-run `deploy.sh`. The service worker pre-caches the dashboard so
-the app works offline. Verify: `?config=1`, `?ui=1`, `?push_selftest=1` (`roundtrip:OK`).
+`meteo.php` overwrites itself (`?edit=1`, `php -l` + `.bak`); the library (`src/Meteo/*.php`),
+UI, and `config.php` go into `FILE_DIR` (`?edit=1&file=NAME[&src]`) and are read at runtime
+(`?ui=1` serves the dashboard, secrets via `require`, classes via the bootstrap's autoloader).
+Edit a file → re-run `deploy.sh`. The service worker pre-caches the dashboard so the app works
+offline. Verify: `?config=1`, `?ui=1`, `?push_selftest=1` (`roundtrip:OK`).
 
-**Hosting note:** the `Meteo` class carries a 1-line `class_alias(...)` host shim at the
-bottom so a framework that routes a URL to a specific class name still works. For a plain
-PHP host, drop the alias and invoke `new Meteo();` directly. `SERVER_URL` in the firmware
-must point at whatever URL serves this file.
+**Hosting note:** `server/meteo.php` defines a class named `TestKurwa` (the path the stelnet
+framework routes to) whose constructor builds `Meteo\Server` and runs it. On a normal host you
+don't need this shim — use `examples/standalone` and point the firmware's `SERVER_URL` at it.
+If a fatal ever takes the bootstrap down, run `php FILE_DIR/src/Meteo/smoke.php` to find the bad
+class, or `cp …/TestKurwa.php.bak …/TestKurwa.php` over shell.
 
 ## Endpoints (quick reference)
 

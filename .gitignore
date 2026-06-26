@@ -4,6 +4,11 @@ build/
 # Local server config with real secrets (pushed to the host, read at runtime — never committed)
 server/config.php
 
+# Standalone example: local secrets, runtime data, copied UI
+examples/standalone/config.php
+examples/standalone/data/
+examples/standalone/public/*.html
+
 # Tests + probes + scratch — kept on disk, not in git
 server/test_ci.py
 server/_verify_*.py
