@@ -589,6 +589,18 @@ const LIVE_PENDING  = { id:'lpend',   icon:'ic-clock', nameKey: 'st_lpend_n', de
 const LIVE_EXITING  = { id:'lexit',   icon:'ic-clock', nameKey: 'st_lexit_n', descKey: 'st_lexit_d' };
 const stN = s => t(s.nameKey) || s.id;
 const stD = s => t(s.descKey) || '';
+/* colour per module state — Live + Стан tab icons take this, so the colour visibly
+ * travels through the cycle (sleep→sample→wake→post) and flags live/offline. */
+const STATE_COLOR = {
+  sleep:  '#8b949e',   /* idle grey */
+  sample: '#3fb950',   /* green — actively sensing */
+  wake:   '#f0883e',   /* orange — radio waking */
+  post:   '#58a6ff',   /* blue — transmitting */
+  live:   '#bc8cff',   /* purple — live streaming (pulses) */
+  lpend:  '#d29922',   /* amber — live change pending */
+  lexit:  '#d29922',
+  offline:'#f85149',   /* red — module silent */
+};
 
 /* Track recent live timestamps to estimate the actual live cycle (HTTPS over
  * GSM can be 30-60s per POST, not the firmware's 3s setting). */
@@ -682,38 +694,45 @@ function inferState(){
  * blue(pulse) = live streaming · amber = live pending · red = offline. */
 function updateTabDots(){
   const s = inferState();
-  /* Signature colours are the base; state only OVERRIDES for notable cases, else '' falls
-   * back to each tab's own --tc. (live = pulse in its own colour, not a recolour.) */
-  let color = '', pulse = false;
-  if (s && s.cur){
-    if (s.offline || s.cur.id === 'offline') color = 'var(--err)';     /* offline → red */
-    else if (s.cur.id === 'lpend')           color = 'var(--warn)';    /* live pending → amber */
-    else if (s.cur.id === 'live')            pulse = true;             /* streaming → pulse in signature colour */
-  }
-  ['live', 'status'].forEach(pg => {
-    const ic = document.querySelector(`.tab[data-page="${pg}"] .ic`);
-    if (!ic) return;
-    ic.style.color = color;                  /* '' → fall back to the tab's signature --tc */
-    ic.classList.toggle('pulse', pulse);
-  });
+  /* Live + Стан follow the live module state — the icon colour travels with the cycle. */
+  const id = s && s.cur ? s.cur.id : null;
+  const color = id && STATE_COLOR[id] ? STATE_COLOR[id] : '';   /* '' → fall back to signature --tc */
+  const pulse = id === 'live';
+  setTabIcon('live', color, pulse);
+  setTabIcon('status', color, pulse);
   updateTabBadges();
+}
+/* set a tab icon's state colour + pulse ('' colour → revert to the signature --tc) */
+function setTabIcon(page, color, pulse){
+  const ic = document.querySelector(`.tab[data-page="${page}"] .ic`);
+  if (!ic) return;
+  ic.style.color = color || '';
+  ic.classList.toggle('pulse', !!pulse);
 }
 /* Status dots on the remaining tabs:
  *  Settings — red if alerts are on but notifications can't show; amber(pulse) if a config change is pending.
  *  Calib    — green(pulse) while a capture source streams; amber if calibration is incomplete (<8 points). */
 function updateTabBadges(){
-  let setColor = null, setPulse = false;
+  /* Settings — red if alerts on but notifications can't fire; amber+pulse if a change is pending */
+  let setColor = '', setPulse = false;
   const permBad = ALERTS_ON && ('Notification' in window) && Notification.permission !== 'granted';
   const pend = Array.isArray(pending) && pending.some(p => p.status === 'waiting');
   if (permBad) setColor = 'var(--err)';
   else if (pend){ setColor = 'var(--warn)'; setPulse = true; }
-  setTabBadge('settings', !!setColor, setColor, setPulse);
+  setTabBadge('settings', !!setColor, setColor || undefined, setPulse);
+  setTabIcon('settings', setColor, setPulse);
 
+  /* Calib — green+pulse while a source streams, amber if calibration is incomplete (<8) */
   const streaming = capPort || capGsmTimer;
-  let calColor = null, calPulse = false;
+  let calColor = '', calPulse = false;
   if (streaming){ calColor = 'var(--ok)'; calPulse = true; }
   else { try { if (Object.keys(getCalib()).length < 8) calColor = 'var(--warn)'; } catch (_) {} }
-  setTabBadge('calib', !!calColor, calColor, calPulse);
+  setTabBadge('calib', !!calColor, calColor || undefined, calPulse);
+  setTabIcon('calib', calColor, calPulse);
+
+  /* History — pulse (in its signature colour) while there's unseen new data */
+  const histNew = document.getElementById('badge-history')?.classList.contains('on');
+  setTabIcon('history', '', !!histNew);
 }
 function renderStatus(){
   const s = inferState();
@@ -3688,8 +3707,10 @@ async function poll(){
     if (!_wasOffline){ _wasOffline = true; toast(t('went_offline'), 'warn'); }
   }
 }
-/* Live countdown 1s tick for status tab */
+/* Live countdown 1s tick for status tab + repaint tab colours so they track the
+ * cycle phase every second (not just on each data poll). */
 setInterval(() => {
+  if (lastConfig) updateTabDots();
   if (document.querySelector('.tab.active')?.dataset.page === 'status') renderStatus();
 }, 1000);
 let pollMs = 5000;
