@@ -101,7 +101,9 @@ body.has-fs{overflow:hidden}
 .sparkline{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:8px;margin-top:6px}
 .sparkline .ttl{font-size:11px;color:var(--mut);display:flex;justify-content:space-between}
 
-select,input[type=number],input[type=text],input[type=date]{background:var(--panel2);color:var(--fg);border:1px solid var(--line);padding:6px 8px;border-radius:5px;font:inherit;font-size:13px;color-scheme:dark}
+select,input[type=number],input[type=text],input[type=date]{background:var(--panel2);color:var(--fg);border:1px solid var(--line);padding:6px 8px;border-radius:5px;font:inherit;font-size:13px}
+input[type=number]{width:104px;text-align:right;-moz-appearance:textfield}   /* one width for all number inputs */
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}   /* drop the browser spinners */
 input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7);cursor:pointer;opacity:.7}
 input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
 input[type=date]::-webkit-datetime-edit-fields-wrapper{color:var(--fg)}
@@ -233,6 +235,7 @@ body.lite .lite-badge{display:inline-block}
 
 /* ===== Sunlight: high-contrast LIGHT theme for reading in direct sun ===== */
 body.sunlight{
+  color-scheme:light;   /* native calendar / select dropdown / inputs follow the light theme */
   --bg:#e6eaef;--panel:#ffffff;--panel2:#eef1f5;--fg:#0a0c10;--mut:#4b535c;--line:#c2cad3;
   --ok:#1a7f37;--warn:#8a6500;--err:#cf222e;--accent:#0969da;--purple:#8250df;
   --hover:#e4e9ef;--card-shadow:0 1px 3px rgba(140,150,165,.5);
