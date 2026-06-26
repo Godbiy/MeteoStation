@@ -1,0 +1,87 @@
+  <div class="nums">
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-battery"/></svg> <span data-i18n="battery">Батарея</span></div>
+      <div class="v" id="t-batt"><span id="t-batt-v">—</span><span style="font-size:13px;color:var(--mut)"> V</span><span class="trend" id="t-batt-trend"></span></div>
+      <div class="s"><span id="t-batt-pct">—%</span> · <span id="t-batt-mv">— mV</span></div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-sun"/></svg> <span data-i18n="solar">Сонце</span></div>
+      <div class="v" id="t-solar">—<span style="font-size:13px;color:var(--mut)"> V</span></div>
+      <div class="s" id="t-solar-sub">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-signal"/></svg> <span data-i18n="signal">Сигнал</span></div>
+      <div class="v" id="t-csq">—</div>
+      <div class="s" id="t-csq-sub">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-cycle"/></svg> <span data-i18n="cycle">Цикл</span></div>
+      <div class="v" id="t-cycle" style="font-size:15px">—</div>
+      <div class="s" id="t-cycle-cfg">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-clock"/></svg> <span data-i18n="updated">Оновлено</span></div>
+      <div class="v" id="t-age" style="font-size:14px">—</div>
+      <div class="s" id="t-ts">—</div>
+    </div>
+    <div class="cell">
+      <div class="l"><svg class="ic ic-sm"><use href="#ic-status"/></svg> <span data-i18n="uptime_live">Аптайм</span></div>
+      <div class="v" id="t-uptime" style="font-size:15px">—</div>
+      <div class="s" data-i18n="since_boot">від останнього вкл.</div>
+    </div>
+  </div>
+
+  <div class="nums" style="margin-top:10px">
+    <div class="cell pwr-cell">
+      <svg class="ic pwr-ic" id="t-reserve-ic"><use href="#ic-battery"/></svg>
+      <div class="v" id="t-reserve">—<span style="font-size:13px;color:var(--mut)"> mAh</span></div>
+      <div class="s" id="t-reserve-sub" data-i18n="reserve">запас</div>
+    </div>
+    <div class="cell pwr-cell">
+      <svg class="ic pwr-ic" id="t-theory-ic"><use href="#ic-sun"/></svg>
+      <div class="v" id="t-theory">—<span style="font-size:13px;color:var(--mut)"> mAh</span></div>
+      <div class="s" id="t-theory-sub" data-i18n="theory">теоретична /год</div>
+    </div>
+    <div class="cell pwr-cell">
+      <svg class="ic pwr-ic" id="t-perhour-ic"><use href="#ic-up"/></svg>
+      <div class="v" id="t-perhour">—<span style="font-size:13px;color:var(--mut)"> mAh</span></div>
+      <div class="s" id="t-perhour-sub" data-i18n="actual">фактична /год</div>
+    </div>
+  </div>
+
+  <div class="nums" style="margin-top:10px">
+    <div class="cell">
+      <div class="l" data-i18n="beaufort">Beaufort scale</div>
+      <div class="v" id="t-bf" style="font-size:15px">—</div>
+      <div class="s" id="t-bf-num">—</div>
+    </div>
+    <div class="cell">
+      <div class="l" data-i18n="gust_factor">Gust factor (1h)</div>
+      <div class="v" id="t-gust">—</div>
+      <div class="s" id="t-gust-sub">—</div>
+    </div>
+    <div class="cell">
+      <div class="l" data-i18n="dir_stability">Стабільність (1h)</div>
+      <div class="v" id="t-stab" style="font-size:15px">—</div>
+      <div class="s" id="t-stab-sub">—</div>
+    </div>
+  </div>
+
+  <div class="card lite-hide">
+    <h2><span data-i18n="speed_last_hour">Швидкість + напрямок за годину</span> <span class="meta" id="live-wt-meta"></span></h2>
+    <div class="row-gap" style="margin:-2px 0 8px;font-size:11px;color:var(--mut);align-items:center">
+      <span data-i18n="smooth">згладження</span>
+      <select id="smooth-sel-live" style="font-size:11px;padding:2px 4px">
+        <option value="0">raw</option>
+        <option value="5">10s</option>
+        <option value="15">30s</option>
+        <option value="30" selected>1m</option>
+        <option value="150">5m</option>
+        <option value="450">15m</option>
+        <option value="0" data-mean="1">avg/POST</option>
+      </select>
+    </div>
+    <svg id="chart-live-wt" viewBox="0 0 600 220" style="width:100%;height:220px"></svg>
+  </div>
+</div>
+

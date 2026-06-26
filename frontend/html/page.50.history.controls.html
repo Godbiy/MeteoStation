@@ -1,0 +1,32 @@
+<!-- ============ HISTORY ============ -->
+<div class="page" id="page-history">
+  <div class="rangebar" id="rangebar">
+    <button class="btn active" data-range="1h">1h</button>
+    <button class="btn" data-range="24h">24h</button>
+    <button class="btn" data-range="7d">7d</button>
+    <button class="btn" data-range="30d">30d</button>
+    <button class="btn" id="range-more-btn" title="more">⋯</button>
+  </div>
+  <div id="range-more" class="range-more" hidden>
+    <div class="rangebar">
+      <button class="btn" data-range="1m">1m</button>
+      <button class="btn" data-range="5m">5m</button>
+      <button class="btn" data-range="15m">15m</button>
+      <button class="btn" data-range="6h">6h</button>
+      <button class="btn" data-range="90d">90d</button>
+      <button class="btn" data-range="365d">1y</button>
+    </div>
+    <div class="row-gap" style="font-size:12px;margin-bottom:6px">
+      <span class="muted" data-i18n="from">від</span>
+      <input type="date" id="r-from" class="day-select" style="max-width:150px;width:auto">
+      <span class="muted" data-i18n="to">до</span>
+      <input type="date" id="r-to" class="day-select" style="max-width:150px;width:auto">
+      <button id="r-apply" class="btn sm primary" data-i18n="apply">Застосувати</button>
+    </div>
+    <div class="row-gap">
+      <button class="btn sm" data-preset="today" data-i18n="today">сьогодні</button>
+      <button class="btn sm" data-preset="yesterday" data-i18n="yesterday">вчора</button>
+      <button class="btn sm" data-preset="week" data-i18n="last7">7 днів</button>
+    </div>
+  </div>
+
