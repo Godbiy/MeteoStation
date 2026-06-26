@@ -46,19 +46,20 @@ to watch the state machine / AT trace live.
 - `meteo.php` — backend, class **`Meteo`** (POST handler, history, config endpoints, calibration, web push). A 1-line `class_alias(… '\\TestKurwa')` at the bottom keeps the host's framework routing to the `…/TestKurwa` endpoint working; for a plain host drop it and call `new Meteo();`.
 - `dashboard.html` — operator UI (live, history, status, settings, calibration)
 - `serial.html` — Web-Serial calibration UI (vane + speed factor)
-- `build_combined_php.py` — embeds dashboard+serial as PHP nowdoc **and inlines `config.json` secrets** → `server/meteo_combined.php` (the deploy artifact, gitignored)
-- `config.example.json` → copy to `config.json` (gitignored): `EDIT_KEY` + VAPID keys, replacing the `__EDIT_KEY__` / `__VAPID_*__` placeholders at build time
+- `deploy.sh` — pushes `meteo.php` + UI + `config.php` to the host (**no build step**). The UI and secrets live in `FILE_DIR` (a host dir the web user can write, e.g. `/st/petro/tmp/meteo`) and are read at runtime; `meteo.php` serves the dashboard from there at `?ui=1`.
+- `config.example.php` → copy to `config.php` (gitignored): `EDIT_KEY` + VAPID keys. Pushed to `FILE_DIR` and `require`d at runtime — never in git.
 - `test_ci.py` — Playwright UI/endpoint suite (gitignored)
 
 ### Deploy
 
 Live endpoint `https://stelnet.stelweld.com.pl/petro/MeteoStation/TestKurwa` — **no `.php`** (adding it triggers a login redirect; the bare framework path bypasses session auth).
 
-```powershell
-python server/build_combined_php.py     # requires server/config.json
-curl -X POST -H "Content-Type: application/x-php" \
-  --data-binary @server/meteo_combined.php \
-  "https://YOUR_HOST/path/to/endpoint?edit=1&key=YOUR_EDIT_KEY"
+One-time host setup (a dir the web user can write — the web root can't create new files):
+`mkdir -p /st/petro/tmp/meteo && chmod 777 /st/petro/tmp/meteo` (must match `FILE_DIR`).
+
+```bash
+cp server/config.example.php server/config.php   # fill EDIT_KEY + VAPID (gitignored)
+./server/deploy.sh                               # pushes meteo.php + UI + config (no build)
 ```
 
 `?edit=1` does a `php -l` check + keeps a `.bak`. Verify after: `?config=1` (JSON), `?ui=1`

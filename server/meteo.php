@@ -25,13 +25,13 @@ class Meteo
     private const LIVE_PATH      = '/tmp/MeteoLive.json';  /* /st/petro/tmp isn't writable for new files */
     private const PUSH_SUBS_PATH  = '/tmp/MeteoPushSubs.json';   /* /st/petro/tmp can't create new files */
     private const PUSH_STATE_PATH = '/tmp/MeteoPushState.json';
+    /* World-writable dir (created by the operator, chmod 777). Holds the UI + config served
+     * at runtime, so deploy = curl each file here instead of embedding via a build step. */
+    private const FILE_DIR = '/st/petro/tmp/meteo';
 
-    /* Web Push (VAPID, RFC 8291/8292). Keypair generated once for this server. */
-    /* Secrets — injected from server/config.json at build time (see config.example.json).
-     * The repo holds only placeholders; real keys live in the gitignored config.json. */
-    private const VAPID_PUBLIC  = '__VAPID_PUBLIC__';
-    private const VAPID_PRIVATE = "__VAPID_PRIVATE__";
-    private const VAPID_SUBJECT  = '__VAPID_SUBJECT__';
+    /* Secrets (EDIT_KEY + VAPID keypair) load at runtime from FILE_DIR/config.php (see
+     * config.example.php). Pushed to the host via ?edit&file=config.php — never in git. */
+    private static array $cfg = [];
 
     /* Default config used if MeteoConfig.json doesn't exist. */
     private const AVG_OVER_DEFAULT = 1;
@@ -44,12 +44,16 @@ class Meteo
     /* Stub for framework lifecycle -- never reached, constructor always exits. */
     public function show(): void {}
 
-    /* Self-edit / admin shared secret — injected from config.json at build time. */
-    private const EDIT_KEY = '__EDIT_KEY__';
     private const SELF_PATH = __FILE__;
+
+    /* Admin secret from config.php; "\0" sentinel when absent so no client key ever matches. */
+    private static function editKey(): string { return (self::$cfg['EDIT_KEY'] ?? '') ?: "\0"; }
 
     public function __construct()
     {
+        $c = is_file(self::FILE_DIR . '/config.php') ? @include self::FILE_DIR . '/config.php' : [];
+        self::$cfg = is_array($c) ? $c : [];
+
         /* CORS for offline dashboard (file:// or any origin) */
         header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -65,6 +69,8 @@ class Meteo
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            if (isset($_GET['ui']))        { $this->handleUi(); exit; }
+            if (isset($_GET['ui_serial'])) { $this->handleUiSerial(); exit; }
             /* Config management endpoints */
             if (isset($_GET['set_avg']))     { $this->handleSetAvg(); exit; }
             if (isset($_GET['set_samples'])) { $this->handleSetSamples(); exit; }
@@ -93,7 +99,7 @@ class Meteo
 
         /* Self-edit: POST new PHP code with ?edit=1&key=SECRET */
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['edit'])) {
-            $this->handleEdit();
+            if (isset($_GET['file'])) { $this->handleEditFile(); } else { $this->handleEdit(); }
             exit;
         }
 
@@ -438,7 +444,7 @@ class Meteo
     private function handleEdit(): void
     {
         header('Content-Type: text/plain');
-        if (($_GET['key'] ?? '') !== self::EDIT_KEY) {
+        if (($_GET['key'] ?? '') !== self::editKey()) {
             http_response_code(401);
             echo "bad key\n";
             return;
@@ -483,29 +489,58 @@ class Meteo
         echo "ok: wrote $len bytes, backup at $bak\n";
     }
 
-/* GET ?dl_html=1 -- serve the embedded dashboard HTML as a downloadable file.
-     * Pulls the same nowdoc block that ?ui=1 echoes (no separate file write needed --
-     * /st/petro/* isn't writable for new files anyway). */
+    /* POST ?edit=1&file=NAME&key=SECRET -- write a whitelisted file into FILE_DIR so the
+     * server can serve the UI + read config from disk (no build/embed step). PHP files get a
+     * php -l check; existing files get a .bak. */
+    private function handleEditFile(): void
+    {
+        header('Content-Type: text/plain');
+        if (($_GET['key'] ?? '') !== self::editKey()) { http_response_code(401); echo "bad key\n"; return; }
+        $name  = basename((string)($_GET['file'] ?? ''));
+        $allow = ['dashboard.html', 'serial.html', 'config.php'];
+        if (!in_array($name, $allow, true)) { http_response_code(400); echo "file not allowed: $name\n"; return; }
+        $body = file_get_contents('php://input');
+        if (strlen($body) < 5) { http_response_code(400); echo "empty body\n"; return; }
+        if (substr($name, -4) === '.php') {
+            $tmp = tempnam(sys_get_temp_dir(), 'meteo_chk_');
+            file_put_contents($tmp, $body);
+            $chk = shell_exec('php -l ' . escapeshellarg($tmp) . ' 2>&1');
+            unlink($tmp);
+            if (strpos($chk, 'No syntax errors') === false) { http_response_code(400); echo "syntax error:\n$chk\n"; return; }
+        }
+        if (!is_dir(self::FILE_DIR)) { http_response_code(500); echo "FILE_DIR missing: " . self::FILE_DIR . "\n"; return; }
+        $path = self::FILE_DIR . '/' . $name;
+        if (is_file($path)) @copy($path, $path . '.bak');
+        if (@file_put_contents($path, $body) === false) {
+            http_response_code(500); echo "write failed: $path\n"; return;
+        }
+        echo "ok: wrote " . strlen($body) . " bytes to $path\n";
+    }
+
+    /* GET ?ui=1 / ?ui_serial=1 -- serve the UI from FILE_DIR (deployed via ?edit&file=).
+     * __BUILD_VER__ is stamped from the file mtime so the page shows when it was deployed. */
+    private function handleUi(): void       { $this->serveUi('dashboard.html'); }
+    private function handleUiSerial(): void { $this->serveUi('serial.html'); }
+    private function serveUi(string $name): void
+    {
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store');
+        $f = self::FILE_DIR . '/' . $name;
+        if (!is_file($f)) { http_response_code(503); echo "not deployed: $name (push via ?edit&file=$name)"; return; }
+        $ver = gmdate('Y-m-d H:i', @filemtime($f) ?: time()) . ' UTC';
+        echo str_replace(['__BUILD_VER__', '__EDIT_KEY__'], [$ver, self::editKey()], (string)file_get_contents($f));
+    }
+
+    /* GET ?dl_html=1 -- serve the deployed dashboard HTML as a downloadable file. */
     private function handleDownloadHtml(): void
     {
-        $src = @file_get_contents(self::SELF_PATH);
-        if ($src === false) {
-            http_response_code(500);
-            header('Content-Type: text/plain');
-            echo "cannot read self\n";
-            return;
-        }
-        $marker = 'DASHBOARD_END_xQz9_MARKER';
-        $start  = strpos($src, "<<<'$marker'");
-        $end    = strpos($src, "\n$marker;");
-        if ($start === false || $end === false || $end <= $start) {
+        $html = @file_get_contents(self::FILE_DIR . '/dashboard.html');
+        if ($html === false) {
             http_response_code(404);
             header('Content-Type: text/plain');
-            echo "embedded dashboard not found\n";
+            echo "dashboard not deployed\n";
             return;
         }
-        $start += strlen("<<<'$marker'") + 1;   /* skip past `<<<'MARKER'\n` */
-        $html   = substr($src, $start, $end - $start);
         header('Content-Type: text/html; charset=utf-8');
         header('Content-Disposition: attachment; filename="MeteoDashboard.html"');
         header('Cache-Control: no-store');
@@ -528,7 +563,7 @@ class Meteo
     private function handleGenDemo(): void
     {
         header('Content-Type: text/plain');
-        if (($_GET['key'] ?? '') !== self::EDIT_KEY) {
+        if (($_GET['key'] ?? '') !== self::editKey()) {
             http_response_code(401);
             echo "bad key\n";
             return;
@@ -626,7 +661,7 @@ class Meteo
     private function handleWipeLog(): void
     {
         header('Content-Type: application/json');
-        if (($_GET['key'] ?? '') !== self::EDIT_KEY) {
+        if (($_GET['key'] ?? '') !== self::editKey()) {
             http_response_code(401);
             echo json_encode(['error' => 'bad key']);
             return;
@@ -667,7 +702,7 @@ class Meteo
     private function handleSaveCalib(): void
     {
         header('Content-Type: application/json');
-        if (($_GET['key'] ?? '') !== self::EDIT_KEY) {
+        if (($_GET['key'] ?? '') !== self::editKey()) {
             http_response_code(401);
             echo json_encode(['error' => 'bad key']);
             return;
@@ -705,7 +740,7 @@ class Meteo
     private function handleRestore(): void
     {
         header('Content-Type: text/plain');
-        if (($_GET['key'] ?? '') !== self::EDIT_KEY) {
+        if (($_GET['key'] ?? '') !== self::editKey()) {
             http_response_code(401);
             echo "bad key\n";
             return;
@@ -759,13 +794,13 @@ class Meteo
     /* VAPID Authorization header value for a given push-service origin (audience). */
     private function vapidAuth(string $audience): ?string {
         $h = self::b64u(json_encode(['typ' => 'JWT', 'alg' => 'ES256']));
-        $p = self::b64u(json_encode(['aud' => $audience, 'exp' => time() + 43200, 'sub' => self::VAPID_SUBJECT]));
+        $p = self::b64u(json_encode(['aud' => $audience, 'exp' => time() + 43200, 'sub' => (self::$cfg['VAPID_SUBJECT'] ?? '')]));
         $input = $h . '.' . $p;
         $sig = '';
-        if (!openssl_sign($input, $sig, self::VAPID_PRIVATE, OPENSSL_ALGO_SHA256)) return null;
+        if (!openssl_sign($input, $sig, (self::$cfg['VAPID_PRIVATE'] ?? ''), OPENSSL_ALGO_SHA256)) return null;
         $raw = $this->derToRawSig($sig);
         if ($raw === '') return null;
-        return 'vapid t=' . $input . '.' . self::b64u($raw) . ', k=' . self::VAPID_PUBLIC;
+        return 'vapid t=' . $input . '.' . self::b64u($raw) . ', k=' . (self::$cfg['VAPID_PUBLIC'] ?? '');
     }
 
     /* RFC 8291 aes128gcm encryption. Optional $as/$salt for deterministic self-test. */
@@ -832,7 +867,7 @@ class Meteo
     private function handlePushPublic(): void {
         header('Content-Type: application/json');
         header('Cache-Control: no-store');
-        echo json_encode(['key' => self::VAPID_PUBLIC]);
+        echo json_encode(['key' => (self::$cfg['VAPID_PUBLIC'] ?? '')]);
     }
 
     private function handlePushSubscribe(): void {
@@ -1246,8 +1281,8 @@ class Meteo
         header('Content-Type: application/javascript; charset=utf-8');
         header('Service-Worker-Allowed: ./');
         header('Cache-Control: no-cache');
+        echo "const C = 'meteo-" . (@filemtime(self::FILE_DIR . '/dashboard.html') ?: 1) . "';\n";
         echo <<<'JS'
-const C = '__SW_CACHE__';
 self.addEventListener('install', e => {
   self.skipWaiting();
   /* PRE-CACHE the dashboard shell on install, so the app opens OFFLINE even on a cold
