@@ -13,10 +13,11 @@ Fuses (low-power, BOD disabled):
 
 ```
 src/Meteo/  PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin (namespace Meteo).
+src/ui/     dashboard.html + serial.html (served from disk; serial = a dashboard tab via iframe).
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
             firmware/probes/ = bring-up sketches (gitignored)
-server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, dashboard.html, serial.html,
-            config.example.php   (config.php, test_ci.py gitignored)
+server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, config.example.php
+            (config.php, test_ci.py gitignored)
 examples/   standalone/ = ready-to-run server for a normal PHP host (index.php + .htaccess)
 docs/       A7672E datasheets, PCB schematic JSON + viewers, avr_cheatsheet.md
 build/      firmware outputs (gitignored)

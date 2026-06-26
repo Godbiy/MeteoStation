@@ -70,7 +70,9 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   let url; try { url = new URL(req.url); } catch (_) { return; }
-  const isShell = req.mode === 'navigate' || url.searchParams.has('ui');
+  /* The dashboard's Serial tab embeds ?ui_serial in an iframe; that's a 'navigate' too, so
+   * exclude it here or the SW would serve the cached dashboard shell into the iframe. */
+  const isShell = (req.mode === 'navigate' || url.searchParams.has('ui')) && !url.searchParams.has('ui_serial');
   if (!isShell) return;   /* data endpoints (history etc.) pass through; app falls back to IndexedDB offline */
   /* stale-while-revalidate: serve the cached shell INSTANTLY (works offline), refresh in bg. */
   e.respondWith((async () => {

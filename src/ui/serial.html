@@ -100,6 +100,10 @@
 </style>
 </head>
 <body>
+<!-- When embedded as the dashboard's Serial tab (?embed), hide our own header — the dashboard
+     already shows one. Standalone (?ui_serial alone) keeps it. -->
+<script>if(location.search.includes('embed'))document.documentElement.classList.add('embed');</script>
+<style>html.embed h1{display:none!important}</style>
 
 <h1>
   <span class="dot" id="dot"></span>

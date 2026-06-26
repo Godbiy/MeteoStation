@@ -390,6 +390,7 @@ body.sunlight .cbtn.set{color:#fff}
   <button class="tab" data-page="history"><svg class="ic"><use href="#ic-history"/></svg> <span data-i18n="tab_history">Історія</span></button>
   <button class="tab" data-page="settings"><svg class="ic"><use href="#ic-settings"/></svg> <span data-i18n="tab_settings">Налаштування</span></button>
   <button class="tab" data-page="calib"><svg class="ic"><use href="#ic-calib"/></svg> <span data-i18n="tab_calib">Калібровка</span></button>
+  <button class="tab" data-page="serial"><svg class="ic"><use href="#ic-plug"/></svg> <span data-i18n="tab_serial">Serial</span></button>
   <span class="tab-ind" id="tab-ind"></span>
 </div>
 
@@ -1024,6 +1025,12 @@ body.sunlight .cbtn.set{color:#fff}
   </div>
 </div>
 
+<!-- ===== SERIAL (USB calibration via Web Serial, desktop Chrome/Edge) — isolated in an iframe ===== -->
+<div class="page" id="page-serial">
+  <iframe id="serial-frame" allow="serial; usb" title="Serial calibration"
+    style="width:100%;height:calc(100dvh - 132px);min-height:520px;border:0;border-radius:12px;background:#0d1117"></iframe>
+</div>
+
 <div class="toast" id="toast"></div>
 <button id="zoom-reset-all" class="zoom-reset-all">⊙ reset zoom</button>
 
@@ -1038,7 +1045,7 @@ $('srv-link').href = SRV; $('srv-link').textContent = SRV;
 
 /* =========== I18N =========== */
 const I18N = {
-  uk:{ tab_live:'Live', tab_history:'Історія', tab_settings:'Налаштування', tab_calib:'Калібровка',
+  uk:{ tab_live:'Live', tab_history:'Історія', tab_settings:'Налаштування', tab_calib:'Калібровка', tab_serial:'Serial',
        wind_direction:'Напрямок вітру', wind_speed:'Швидкість вітру', battery:'Батарея', signal:'Сигнал',
        cycle:'Цикл', updated:'Оновлено', uptime_live:'Аптайм', since_boot:'від останнього вкл.', speed_last_hour:'Швидкість за останню годину',
        speed_history:'Швидкість вітру', wind_rose:'Wind Rose', rose_meta:'% часу за напрямком',
@@ -1111,7 +1118,7 @@ const I18N = {
        sync_pending_title:'Конфіг ще не застосовано.',
        sync_pending_body:'Налаштовано: {int}, але сервер бачить цикл {obs}. Модуль перейде на новий цикл після наступного POST (медіана оновиться за ~10 POSTів).',
        sync_ok:'Цикл синхронізовано: налаштовано {int}, фактично {obs}' },
-  pl:{ tab_live:'Na żywo', tab_history:'Historia', tab_settings:'Ustawienia', tab_calib:'Kalibracja',
+  pl:{ tab_live:'Na żywo', tab_history:'Historia', tab_settings:'Ustawienia', tab_calib:'Kalibracja', tab_serial:'Serial',
        wind_direction:'Kierunek wiatru', wind_speed:'Prędkość wiatru', battery:'Bateria', signal:'Sygnał',
        cycle:'Cykl', updated:'Zaktualizowano', uptime_live:'Uptime', since_boot:'od ost. włączenia', speed_last_hour:'Prędkość ostatnia godzina',
        speed_history:'Prędkość wiatru', wind_rose:'Wind Rose', rose_meta:'% czasu wg kierunku',
@@ -1184,7 +1191,7 @@ const I18N = {
        sync_pending_title:'Konfiguracja jeszcze nieprzyjęta.',
        sync_pending_body:'Ustawione: {int}, ale serwer widzi cykl {obs}. Moduł przejdzie na nowy cykl po następnym POST (mediana zaktualizuje się za ~10 POSTów).',
        sync_ok:'Cykl zsynchronizowany: ustawiono {int}, faktycznie {obs}' },
-  en:{ tab_live:'Live', tab_history:'History', tab_settings:'Settings', tab_calib:'Calibration',
+  en:{ tab_live:'Live', tab_history:'History', tab_settings:'Settings', tab_calib:'Calibration', tab_serial:'Serial',
        wind_direction:'Wind direction', wind_speed:'Wind speed', battery:'Battery', signal:'Signal',
        cycle:'Cycle', updated:'Updated', uptime_live:'Uptime', since_boot:'since last power-on', speed_last_hour:'Speed last hour',
        speed_history:'Wind speed', wind_rose:'Wind Rose', rose_meta:'% time per direction',
@@ -1448,6 +1455,7 @@ function renderPageSync(page){
   else if (page === 'live') drawLiveTimeline();
   else if (page === 'status') renderStatus();
   else if (page === 'calib'){ renderCalibReadonly(); capRenderGrid(); }
+  else if (page === 'serial'){ const f = $('serial-frame'); if (f && !f.getAttribute('src')) f.src = '?ui_serial=1&embed=1'; }
 }
 /* Fresh-data fetch + off-tab side-effects — run AFTER the transition so they don't jank it. */
 function asyncUpdate(page){

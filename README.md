@@ -12,11 +12,12 @@ alerts.
 src/Meteo/       PHP library, one class per file: Server (pure router), Api (station POST +
                  history/config), Store (persistence), Payload (binary decode + CRC),
                  WebPush (VAPID), Ui (dashboard/PWA), Admin (edit).
+src/ui/          dashboard.html + serial.html (served from disk at runtime; serial = a tab/iframe)
 firmware/        AVR firmware (C). main.c = non-blocking state machine; gsm.c, sensor.c,
                  power.c, dbgUart.c (soft-UART debug). config.h = all build flags.
 firmware/probes/ standalone hardware bring-up sketches (gitignored)
-server/          stelnet host adapter: meteo.php (thin bootstrap), deploy.sh, dashboard.html,
-                 serial.html, config.example.php  (config.php + test_ci.py gitignored)
+server/          stelnet host adapter: meteo.php (thin bootstrap), deploy.sh, config.example.php
+                 (config.php + test_ci.py gitignored)
 examples/        standalone/ — ready-to-run server for a normal PHP host (index.php + .htaccess)
 docs/            datasheets (A7672E), PCB/schematic JSON + viewers, AVR cheatsheet
 build/           firmware build outputs (gitignored)

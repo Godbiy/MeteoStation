@@ -21,9 +21,9 @@ echo "== library (src/Meteo -> FILE_DIR/src/Meteo) =="
 for f in src/Meteo/*.php; do n=$(basename "$f"); printf '  %-14s' "$n"; push "$f" "file=$n&src"; done
 
 echo "== UI + config (-> FILE_DIR) =="
-printf '  %-14s' config.php;     push server/config.php    "file=config.php"
-printf '  %-14s' dashboard.html; push server/dashboard.html "file=dashboard.html"
-printf '  %-14s' serial.html;    push server/serial.html    "file=serial.html"
+printf '  %-14s' config.php;     push server/config.php       "file=config.php"
+printf '  %-14s' dashboard.html; push src/ui/dashboard.html   "file=dashboard.html"
+printf '  %-14s' serial.html;    push src/ui/serial.html      "file=serial.html"
 
 echo "== bootstrap (-> the endpoint file itself) =="
 printf '  %-14s' meteo.php;      push server/meteo.php
