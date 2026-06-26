@@ -265,23 +265,28 @@ body.sunlight .gauge-card text[fill="#adb5bd"]{fill:#3d444d}
 body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
 
 /* settings rows: label + segmented control, comfy touch targets */
-.set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:11px 0;flex-wrap:wrap}
-.set-row>.set-lbl{font-size:13px;color:var(--mut)}
+.set-row{display:flex;flex-direction:column;align-items:stretch;gap:7px;margin:14px 0}
+.set-row>.set-lbl{font-size:13px;color:var(--fg);font-weight:600}   /* label sits ABOVE its control */
+.set-row select{width:100%}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
 .seg-btn{background:var(--panel2);color:var(--fg);border:1px solid var(--line);padding:9px 13px;border-radius:7px;font:inherit;font-size:13px;cursor:pointer;min-height:42px;display:inline-flex;align-items:center;gap:5px}
 .seg-btn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
 .set-row .lang-btn{padding:9px 14px;font-size:13px;min-height:42px}
 /* ---- settings: tidy labelled fields + full-width touch action bar ---- */
-.set-field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;flex-wrap:wrap}
-.set-field>.lbl{font-size:13px;color:var(--mut);flex:1 1 auto}
-.set-field .ctl{display:flex;align-items:center;gap:6px;flex:0 0 auto}
-.set-field .ctl .unit{font-size:12px;color:var(--mut);min-width:32px}
+.set-field{display:flex;flex-direction:column;align-items:stretch;gap:7px;margin:14px 0}
+.set-field>.lbl{font-size:13px;color:var(--fg);font-weight:600}   /* label above, full-width control below */
+.set-field .ctl{display:flex;align-items:center;gap:6px;width:100%}
+.set-field .ctl .unit{font-size:12px;color:var(--mut);min-width:32px;text-align:right}
 /* input + unit read as one control (the unit sits inside the field, not floating beside it) */
-.set-field .ctl:has(.unit){border:1px solid var(--line);background:var(--panel2);border-radius:5px;gap:0;padding-right:9px}
-.set-field .ctl:has(.unit) input[type=number]{border:none;background:transparent}
-.set-field input[type=number]{min-height:44px;font-size:15px;width:104px;text-align:right}
-.set-field select{min-height:44px;font-size:15px}
+.set-field .ctl:has(.unit){border:1px solid var(--line);background:var(--panel2);border-radius:5px;gap:0;padding-right:10px;width:100%}
+.set-field .ctl:has(.unit) input[type=number]{border:none;background:transparent;flex:1 1 auto;width:auto;text-align:left}
+.set-field input[type=number]{min-height:44px;font-size:15px;width:100%;text-align:left}
+.set-field .ctl select,.set-field select{min-height:44px;font-size:15px;width:100%}
 .set-field.full select{width:100%}
+/* validation states + helper/error text below a field (Bootstrap-style) */
+.set-field.error :is(input,select),.set-field.error .ctl:has(.unit),.set-row.error select{border-color:var(--err)}
+.field-help{font-size:12px;color:var(--mut);margin-top:2px}
+.field-err{font-size:12px;color:var(--err);margin-top:2px}
 .set-note{font-size:11px;color:var(--mut);margin:2px 0 0}
 .card-actions{display:flex;gap:8px;margin-top:14px}
 .card-actions .btn{flex:1;min-height:48px;font-size:15px;padding:12px;justify-content:center;display:inline-flex;align-items:center;gap:6px;border-radius:7px}
