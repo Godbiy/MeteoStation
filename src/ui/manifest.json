@@ -1,0 +1,16 @@
+{
+  "name": "MeteoStation",
+  "short_name": "Meteo",
+  "start_url": "?ui=1",
+  "scope": "./",
+  "display": "minimal-ui",
+  "display_override": ["minimal-ui"],
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    { "src": "?icon=1", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "?icon_png&size=192", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "?icon_png&size=512", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "?icon_png&size=512", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

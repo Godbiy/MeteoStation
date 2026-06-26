@@ -46,10 +46,10 @@ final class Admin
     {
         header('Content-Type: text/plain');
         if ($this->badKey()) { http_response_code(401); echo "bad key\n"; return; }
-        $name = basename((string)($_GET['file'] ?? ''));
-        $allow = ['dashboard.html', 'config.php'];
-        $isSrc = (bool)preg_match('/^[A-Za-z][A-Za-z0-9]*\.php$/', $name) && isset($_GET['src']);
-        if (!in_array($name, $allow, true) && !$isSrc) { http_response_code(400); echo "file not allowed: $name\n"; return; }
+        $name    = basename((string)($_GET['file'] ?? ''));
+        $isSrc   = (bool)preg_match('/^[A-Za-z][A-Za-z0-9]*\.php$/', $name) && isset($_GET['src']);  // library class -> FILE_DIR/src/Meteo
+        $isAsset = (bool)preg_match('/^[A-Za-z0-9_.-]+\.(html|css|js|json)$/', $name);               // UI asset -> FILE_DIR
+        if ($name !== 'config.php' && !$isSrc && !$isAsset) { http_response_code(400); echo "file not allowed: $name\n"; return; }
         $body = file_get_contents('php://input');
         if (strlen($body) < 5) { http_response_code(400); echo "empty body\n"; return; }
         if (substr($name, -4) === '.php') {

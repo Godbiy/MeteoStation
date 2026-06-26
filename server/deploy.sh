@@ -20,9 +20,9 @@ push() { curl -s -X POST -H "$H" --data-binary "@$1" "$URL?edit=1${2:+&$2}&key=$
 echo "== library (src/Meteo -> FILE_DIR/src/Meteo) =="
 for f in src/Meteo/*.php; do n=$(basename "$f"); printf '  %-14s' "$n"; push "$f" "file=$n&src"; done
 
-echo "== UI + config (-> FILE_DIR) =="
-printf '  %-14s' config.php;     push server/config.php       "file=config.php"
-printf '  %-14s' dashboard.html; push src/dashboard.html      "file=dashboard.html"
+echo "== UI assets + config (-> FILE_DIR) =="
+for f in src/ui/*; do n=$(basename "$f"); printf '  %-14s' "$n"; push "$f" "file=$n"; done
+printf '  %-14s' config.php; push server/config.php "file=config.php"
 
 echo "== bootstrap (-> the endpoint file itself) =="
 printf '  %-14s' meteo.php;      push server/meteo.php
