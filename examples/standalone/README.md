@@ -8,7 +8,7 @@ same code the production stelnet adapter runs.
 
 ```bash
 cp config.example.php config.php        # fill EDIT_KEY + VAPID keys (gitignored)
-cp ../../src/ui/dashboard.html public/  # the operator UI (calibration is a tab inside it)
+cp ../../src/dashboard.html public/  # the operator UI (calibration is a tab inside it)
 ```
 
 Drop the whole `standalone/` directory on your host (or set the vhost docroot to it), make sure
