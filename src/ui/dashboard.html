@@ -525,11 +525,10 @@
   <div class="card">
     <h2 data-i18n="alerts">🔔 Сповіщення</h2>
     <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="alerts_hint">Push-сповіщення коли вкладка відкрита. Обери які типи приходять.</div>
-    <div class="set-row">
+    <div class="set-row toggle">
       <span class="set-lbl" data-i18n="alerts_on_lbl">Сповіщення</span>
-      <div class="seg">
-        <button class="seg-btn" id="al-off-btn" data-i18n="off">Вимк</button>
-        <button class="seg-btn" id="al-on-btn" data-i18n="on_btn">Увімк</button>
+      <div class="sw-wrap">
+        <label class="switch"><input type="checkbox" id="al-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
     <div id="al-types" style="display:flex;flex-direction:column">
@@ -732,6 +731,15 @@
   </div>
 </div>
 
+<div id="confirm-modal" class="cfm" hidden>
+  <div class="cfm-box">
+    <div class="cfm-msg" id="cfm-msg"></div>
+    <div class="cfm-actions">
+      <button class="btn" id="cfm-no" data-i18n="cancel">Скасувати</button>
+      <button class="btn danger" id="cfm-yes" data-i18n="confirm_yes">Так</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <button id="zoom-reset-all" class="zoom-reset-all">⊙ reset zoom</button>
 

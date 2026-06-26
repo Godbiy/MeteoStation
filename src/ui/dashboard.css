@@ -288,6 +288,12 @@ body.sunlight .gauge-card text[fill="#6c757d"]{fill:#57606a}
 .switch input:focus-visible + .track{outline:2px solid var(--accent);outline-offset:2px}
 /* theme switch: dim the inactive side glyph (moon=dark on the left, sun=light on the right) */
 .sw-wrap:has(input:checked) .sw-ico.sun,.sw-wrap:not(:has(input:checked)) .sw-ico.moon{color:var(--accent)}
+/* in-app confirm dialog (native confirm() is suppressed in standalone PWAs) */
+.cfm{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:24px}
+.cfm[hidden]{display:none}
+.cfm-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.cfm-msg{color:var(--fg);font-size:14px;line-height:1.45;margin-bottom:16px}
+.cfm-actions{display:flex;gap:8px;justify-content:flex-end}
 /* ---- settings: tidy labelled fields + full-width touch action bar ---- */
 .set-field{display:flex;flex-direction:column;align-items:stretch;gap:7px;margin:14px 0}
 .set-field>.lbl{font-size:13px;color:var(--fg);font-weight:600}   /* label above, full-width control below */

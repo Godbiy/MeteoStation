@@ -21,7 +21,7 @@ const I18N = {
        live_mode:'🔴 Live режим (для калібровки)',
        live_hint:'Прошивка стає у нон-стоп live POSTs (3с цикл). Жере батарею, тільки для калібровки.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Нон-стоп Live POSTs',
+       live_posts:'Нон-стоп Live POSTs', cancel:'Скасувати', confirm_yes:'Так',
        danger:'⚠ Danger', wipe:'Видалити всі дані на сервері', server:'Сервер',
        calib_title:'🧭 Калібровка сенсорів',
        calib_hint2:'Калібровка робиться через окрему сторінку. Підтримує Serial COM (швидко, при платі) і GSM live (з будь-де).',
@@ -95,7 +95,7 @@ const I18N = {
        live_mode:'🔴 Tryb live (do kalibracji)',
        live_hint:'Firmware wchodzi w ciągłe POSTy (3s cykl). Wyczerpuje baterię, tylko do kalibracji.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Non-stop Live POSTs',
+       live_posts:'Non-stop Live POSTs', cancel:'Anuluj', confirm_yes:'Tak',
        danger:'⚠ Niebezpieczne', wipe:'Usuń wszystkie dane na serwerze', server:'Serwer',
        calib_title:'🧭 Kalibracja czujników',
        calib_hint2:'Kalibracja przez osobną stronę. Wspiera Serial COM (szybko, przy płycie) i GSM live (zdalnie).',
@@ -169,7 +169,7 @@ const I18N = {
        live_mode:'🔴 Live mode (for calibration)',
        live_hint:'Firmware enters non-stop live POSTs (3s cycle). Eats battery, calibration only.',
        start_live:'Start LIVE', stop_live:'Stop LIVE',
-       live_posts:'Non-stop Live POSTs',
+       live_posts:'Non-stop Live POSTs', cancel:'Cancel', confirm_yes:'Yes',
        danger:'⚠ Danger', wipe:'Wipe all server data', server:'Server',
        calib_title:'🧭 Sensor calibration',
        calib_hint2:'Calibration via a dedicated page. Supports Serial COM (fast, at the board) and GSM live (remote).',
@@ -1177,6 +1177,20 @@ function toast(msg, err=false){
 }
 /* retrigger the scale "bump" animation on an element */
 function bump(el){ if (!el) return; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+/* In-app confirm — native window.confirm() is suppressed (returns false) in many
+ * standalone/installed PWAs, which made "destructive" buttons silently no-op.
+ * Returns a Promise<boolean>. Falls back to window.confirm if the modal is absent. */
+function uiConfirm(msg){
+  return new Promise(resolve => {
+    const m = $('confirm-modal'), yes = $('cfm-yes'), no = $('cfm-no'), txt = $('cfm-msg');
+    if (!m || !yes || !no){ resolve(window.confirm(msg)); return; }
+    txt.textContent = msg;
+    m.hidden = false;
+    const done = v => { m.hidden = true; yes.removeEventListener('click', onYes); no.removeEventListener('click', onNo); m.removeEventListener('click', onBg); resolve(v); };
+    const onYes = () => done(true), onNo = () => done(false), onBg = e => { if (e.target === m) done(false); };
+    yes.addEventListener('click', onYes); no.addEventListener('click', onNo); m.addEventListener('click', onBg);
+  });
+}
 
 /* =========== FETCH + NETWORK MONITOR =========== */
 const netLog = [];     /* {url, ms, bytes, status, ok, at} – ring buffer of last 30 */
@@ -1664,7 +1678,7 @@ async function updateCacheStats(){
   $('cache-quota').textContent = est.quota ? (est.quota / 1024 / 1024).toFixed(0) + ' MB' : 'unknown';
 }
 $('clear-cache-btn').addEventListener('click', async () => {
-  if (!confirm('Видалити кешовані історичні дані?')) return;
+  if (!(await uiConfirm('Видалити кешовані історичні дані?'))) return;
   await dbClear();
   history = [];
   speedHistory = [];
@@ -1966,9 +1980,9 @@ function checkAlerts(){
   }
 }
 (function(){
-  const onB = $('al-on-btn'), offB = $('al-off-btn'), perm = $('al-perm'), test = $('al-test'), stat = $('al-stat'), wrap = $('al-types');
-  if (!onB || !wrap) return;
-  const reflect = () => { onB.classList.toggle('active', ALERTS_ON); offB.classList.toggle('active', !ALERTS_ON); };
+  const sw = $('al-sw'), perm = $('al-perm'), test = $('al-test'), stat = $('al-stat'), wrap = $('al-types');
+  if (!sw || !wrap) return;
+  const reflect = () => { sw.checked = ALERTS_ON; };
   reflect();
   /* fill per-type checkboxes + thresholds from ALERTS */
   wrap.querySelectorAll('input[data-al]').forEach(cb => cb.checked = !!ALERTS[cb.dataset.al]?.on);
@@ -1978,8 +1992,7 @@ function checkAlerts(){
   const showPerm = () => { stat.textContent = ('Notification' in window) ? Notification.permission : '—'; };
   showPerm();
   const setOn = v => { ALERTS_ON = v; localStorage.setItem('alerts_on', v ? '1' : '0'); reflect(); };
-  onB.addEventListener('click', () => setOn(true));
-  offB.addEventListener('click', () => setOn(false));
+  sw.addEventListener('change', () => setOn(sw.checked));
   perm.addEventListener('click', async () => { if ('Notification' in window){ await Notification.requestPermission(); showPerm(); } });
   test.addEventListener('click', async () => {
     if (!('Notification' in window)){ toast('браузер не підтримує сповіщення', true); return; }
@@ -2182,7 +2195,7 @@ setTimeout(async () => {
 }, 0);
 
 $('wipe-btn').addEventListener('click', async () => {
-  if (!confirm('Видалити всі дані на сервері?')) return;
+  if (!(await uiConfirm('Видалити всі дані на сервері?'))) return;
   $('wipe-stat').textContent = '…';
   try { await fetch(SRV + '?wipe_log=1&key=' + CALIB_KEY + '&t=' + Date.now()); $('wipe-stat').textContent='✓'; $('wipe-stat').className='stat ok'; toast('wiped'); }
   catch (e){ $('wipe-stat').textContent='err'; $('wipe-stat').className='stat err'; }
