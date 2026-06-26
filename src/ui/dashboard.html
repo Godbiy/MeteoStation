@@ -1022,6 +1022,12 @@ body.sunlight .cbtn.set{color:#fff}
     </div>
     <div id="calib-srv-meta" class="muted" style="margin-top:6px;font-size:11px"></div>
   </div>
+  <div class="card">
+    <h2>Raw stream <span class="muted" id="cap-rawstat" style="font-weight:400;font-size:11px"></span></h2>
+    <div class="muted" data-i18n="raw_hint">Сирий потік з UART (Serial) або GSM-снапшоти — для діагностики.</div>
+    <div style="margin:8px 0"><button id="cap-raw-clear" class="btn">Clear</button></div>
+    <pre id="cap-raw" style="max-height:240px;overflow:auto;margin:0;padding:10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font:11px/1.5 ui-monospace,monospace;color:var(--fg);white-space:pre-wrap;word-break:break-all">— чекаю на дані —</pre>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2071,6 +2077,17 @@ async function refreshServerCalibMeta(){
  * (getCalib/setCalib) + readonly table — one page, no separate UI. */
 let capPort = null, capReader = null, capKeep = false, capLineBuf = '';
 let capByte = null, capSrc = 'serial', capGsmTimer = null;
+let capRawLines = [], capRxCount = 0, capRxT0 = 0;
+const CAP_RAW_MAX = 200;
+/* Append a line to the calibration Raw-stream log (newest first, capped). */
+function capLogRaw(line){
+  capRawLines.unshift(line);
+  if (capRawLines.length > CAP_RAW_MAX) capRawLines.length = CAP_RAW_MAX;
+  const r = $('cap-raw'); if (r) r.textContent = capRawLines.join('\n');
+  capRxCount++;
+  const rs = $('cap-rawstat');
+  if (rs){ if (!capRxT0) capRxT0 = Date.now(); rs.textContent = `· ${capRxCount} ln / ${((Date.now()-capRxT0)/1000).toFixed(0)}s`; }
+}
 
 function capRenderByte(){
   $('cap-byte').textContent = capByte == null ? '—' : `${capByte} (${capByte.toString(2).padStart(8,'0')})`;
@@ -2109,6 +2126,7 @@ function capRenderGrid(){
   const p = $('cap-progress'); if (p) p.textContent = `${n}/8`;
 }
 function capParseLine(line){
+  capLogRaw(line);
   const m = line.match(/ON=([01]{8})/);   /* firmware debug: ON=bbbbbbbb OFF=… dec=… P=… */
   if (m){ capByte = parseInt(m[1], 2); capRenderByte(); }
 }
@@ -2150,7 +2168,8 @@ async function capDisconnect(){
 async function capGsmPoll(){
   try {
     const j = await fjson(SRV + '?live_now=1&t=' + Date.now());
-    if (j && j.ok){ capByte = (j.vane_on ?? j.vane ?? null); capRenderByte(); }
+    if (j && j.ok){ capByte = (j.vane_on ?? j.vane ?? null); capRenderByte();
+      capLogRaw(`[GSM] ${j.timestamp||'?'} vane=${j.vane_on ?? j.vane} pps=${j.pulses_sec} batt=${j.batt_mv}mV csq=${j.csq} age=${j.age_sec}s`); }
   } catch {}
 }
 function capStopGsm(){ if (capGsmTimer){ clearInterval(capGsmTimer); capGsmTimer = null; } }
@@ -2166,6 +2185,7 @@ if (!('serial' in navigator)){ $('cap-warn').style.display = 'block'; $('cap-con
 $('cap-connect').addEventListener('click', capConnect);
 $('cap-disconnect').addEventListener('click', capDisconnect);
 document.querySelectorAll('[data-capsrc]').forEach(b => b.addEventListener('click', () => capSetSource(b.dataset.capsrc)));
+$('cap-raw-clear')?.addEventListener('click', () => { capRawLines = []; capRxCount = 0; capRxT0 = 0; $('cap-raw').textContent = '— cleared —'; if ($('cap-rawstat')) $('cap-rawstat').textContent = ''; });
 capRenderByte();
 
 /* =========== STATE =========== */
