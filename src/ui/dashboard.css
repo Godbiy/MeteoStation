@@ -96,7 +96,6 @@ body.has-fs{overflow:hidden}
 .pwr-cell .pwr-ic{width:30px;height:30px;display:block;margin:0 auto 6px;opacity:1;transition:color .2s}
 .pwr-cell .v{font-size:23px}
 .pwr-cell .s{font-size:11px;margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
-.pwr-cell .s.pwr-hour{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:2px;color:var(--accent)}
 
 .sparkline{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:8px;margin-top:6px}
 .sparkline .ttl{font-size:11px;color:var(--mut);display:flex;justify-content:space-between}
