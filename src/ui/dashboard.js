@@ -3430,7 +3430,7 @@ function drawHeatmap(pts){
       for (let h = 0; h < 24; h++){
         const cell = hmDaysData[k][h];
         if (!cell.length){
-          svgContent += `<rect x="${labelW + h*cellW}" y="${labelH + r*cellH}" width="${cellW-1}" height="${cellH-1}" fill="#0d1117"/>`;
+          svgContent += `<rect x="${labelW + h*cellW}" y="${labelH + r*cellH}" width="${cellW-1}" height="${cellH-1}" fill="var(--panel2)"/>`;
         } else {
           const avg = cell.reduce((a,b)=>a+b,0)/cell.length;
           svgContent += `<rect x="${labelW + h*cellW}" y="${labelH + r*cellH}" width="${cellW-1}" height="${cellH-1}" fill="${colorOf(avg)}">
@@ -3452,7 +3452,7 @@ function drawHeatmap(pts){
       const x = 10 + h * cellW;
       svgContent += `<text x="${x + cellW/2}" y="${H-4}" text-anchor="middle" fill="var(--mut)" font-size="9">${pad2(h)}</text>`;
       if (!cell.length){
-        svgContent += `<rect x="${x}" y="${labelH}" width="${cellW-1}" height="${innerH}" fill="#0d1117" opacity=".4"/>`;
+        svgContent += `<rect x="${x}" y="${labelH}" width="${cellW-1}" height="${innerH}" fill="var(--panel2)" opacity=".4"/>`;
         continue;
       }
       const avg = cell.reduce((a,b)=>a+b,0)/cell.length;

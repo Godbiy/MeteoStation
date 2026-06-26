@@ -51,8 +51,8 @@ body,.card,.nums,.gauge-card,.btn,.seg-btn,.cbtn,.lang-btn,input,select,.bit,.ce
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
 ::-webkit-scrollbar-thumb:hover{background:var(--mut)}
 ::-webkit-scrollbar-track{background:transparent}
-.card h2{font-size:11px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:600;display:flex;align-items:center;gap:8px}
-.card h2 .meta{margin-left:auto;color:var(--mut);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px}
+.card h2{font-size:11px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:600;display:flex;align-items:center;gap:8px;padding-right:34px}   /* room for the absolute .fs-btn */
+.card h2 .meta{margin-left:auto;color:var(--mut);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fs-btn{position:absolute;top:8px;right:8px;background:rgba(13,17,23,.7);border:1px solid var(--line);color:var(--mut);padding:3px 7px;border-radius:4px;cursor:pointer;font:inherit;font-size:12px;line-height:1;z-index:2;backdrop-filter:blur(4px)}
 .fs-btn:hover{color:var(--fg);background:var(--panel2)}
 .fs-btn .ic{width:13px;height:13px;vertical-align:middle}
