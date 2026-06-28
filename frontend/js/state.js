@@ -21,7 +21,7 @@ const LIVE_PENDING  = { id:'lpend',   icon:'ic-clock', nameKey: 'st_lpend_n', de
 const LIVE_EXITING  = { id:'lexit',   icon:'ic-clock', nameKey: 'st_lexit_n', descKey: 'st_lexit_d' };
 const stN = s => t(s.nameKey) || s.id;
 const stD = s => t(s.descKey) || '';
-/* colour per module state — Live + Стан tab icons take this, so the colour visibly
+/* colour per module state — Live + Status tab icons take this, so the colour visibly
  * travels through the cycle (sleep→sample→wake→post) and flags live/offline. */
 const STATE_COLOR = {
   sleep:  '#8b949e',   /* idle grey */
@@ -187,7 +187,7 @@ function inferState(){
  * blue(pulse) = live streaming · amber = live pending · red = offline. */
 function updateTabDots(){
   const s = inferState();
-  /* Live + Стан follow the live module state — the icon colour travels with the cycle. */
+  /* Live + Status follow the live module state — the icon colour travels with the cycle. */
   const id = s && s.cur ? s.cur.id : null;
   const color = id && STATE_COLOR[id] ? STATE_COLOR[id] : '';   /* '' → fall back to signature --tc */
   const pulse = id === 'live';
@@ -250,7 +250,7 @@ function renderStatus(){
   const s = inferState();
   if (!s.cur){
     $('st-icon').innerHTML = icSvg('ic-status'); $('st-icon').style.color = 'var(--mut)';
-    $('st-name').textContent = '—'; $('st-desc').textContent = 'чекаю на дані сервера';
+    $('st-name').textContent = '—'; $('st-desc').textContent = t('waiting_server_data');
     $('st-countdown').textContent = '—'; $('st-progress').style.width = '0%';
     if ($('st-collect')) $('st-collect').textContent = '';
     if ($('st-health'))  $('st-health').textContent = '';
@@ -266,7 +266,7 @@ function renderStatus(){
   $('st-last-post').textContent = 'last: ' + (s.lastSec != null ? fmtAgo(s.lastSec) : '—');
   $('st-next-post').textContent = 'next: ' + (s.untilNext != null ? '~' + Math.ceil(s.untilNext) + 's' : '—');
 
-  /* Grounded collection estimate: "≈ проба k/N" while sampling (idx 1). */
+  /* Grounded collection estimate: "≈ sample k/N" while sampling (idx 1). */
   const collectEl = $('st-collect');
   if (collectEl){
     if (s.sampleIdx != null && s.expN){

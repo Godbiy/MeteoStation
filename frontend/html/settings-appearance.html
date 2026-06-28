@@ -1,9 +1,9 @@
 <!-- ============ SETTINGS ============ -->
 <div class="page" id="page-settings">
   <div class="card">
-    <h2 data-i18n="appearance">🎨 Вигляд</h2>
+    <h2 data-i18n="appearance">🎨 Appearance</h2>
     <div class="set-row toggle">
-      <span class="set-lbl" data-i18n="theme">Тема</span>
+      <span class="set-lbl" data-i18n="theme">Theme</span>
       <div class="sw-wrap">
         <svg class="ic sw-ico moon"><use href="#ic-moon"/></svg>
         <label class="switch"><input type="checkbox" id="theme-sw"><span class="track"><span class="knob"></span></span></label>
@@ -11,7 +11,7 @@
       </div>
     </div>
     <div class="set-row">
-      <span class="set-lbl" data-i18n="language">Мова</span>
+      <span class="set-lbl" data-i18n="language">Language</span>
       <div class="seg">
         <button class="lang-btn" data-lang="uk">UA</button>
         <button class="lang-btn" data-lang="pl">PL</button>
@@ -19,37 +19,37 @@
       </div>
     </div>
     <div class="set-row">
-      <span class="set-lbl" data-i18n="tz_label">🕓 Часовий пояс даних</span>
+      <span class="set-lbl" data-i18n="tz_label">🕓 Data timezone</span>
       <select id="tz-sel">
-        <option value="" data-i18n="tz_auto">авто (як браузер)</option>
+        <option value="" data-i18n="tz_auto">auto (browser)</option>
         <option value="0">UTC+0</option><option value="1">UTC+1</option>
         <option value="2">UTC+2</option><option value="3">UTC+3</option>
         <option value="-5">UTC-5</option><option value="-8">UTC-8</option>
       </select>
     </div>
     <div class="set-row toggle">
-      <span class="set-lbl" data-i18n="test_mode">🧪 Тест-режим</span>
+      <span class="set-lbl" data-i18n="test_mode">🧪 Test mode</span>
       <div class="sw-wrap">
         <label class="switch"><input type="checkbox" id="test-toggle-2"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
     <div class="set-row toggle">
-      <span class="set-lbl" data-i18n="haptics">📳 Вібрація</span>
+      <span class="set-lbl" data-i18n="haptics">📳 Vibration</span>
       <div class="sw-wrap">
         <label class="switch"><input type="checkbox" id="haptics-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
   </div>
   <div class="card">
-    <h2 data-i18n="data_2g">📶 2G / дані</h2>
+    <h2 data-i18n="data_2g">📶 2G / data</h2>
     <div class="set-row toggle">
-      <span class="set-lbl" data-i18n="lite_mode">Lite-режим</span>
+      <span class="set-lbl" data-i18n="lite_mode">Lite mode</span>
       <div class="sw-wrap">
         <label class="switch"><input type="checkbox" id="lite-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
-    <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="lite_hint">Lite: повільний поллінг (60с), без щогодинного завантаження кривої — мінімум трафіку на 2G.</div>
+    <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="lite_hint">Lite: slow polling (60s), no hourly curve download — minimal data on 2G.</div>
     <div class="card-actions">
-      <button id="refresh-now" class="btn"><svg class="ic"><use href="#ic-cycle"/></svg> <span data-i18n="refresh">Синхронізувати</span><span class="spinner" id="sync-spin"></span></button>
+      <button id="refresh-now" class="btn"><svg class="ic"><use href="#ic-cycle"/></svg> <span data-i18n="refresh">Sync now</span><span class="spinner" id="sync-spin"></span></button>
     </div>
   </div>

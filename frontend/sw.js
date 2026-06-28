@@ -38,7 +38,7 @@ self.addEventListener('fetch', e => {
       const cached = await c.match(key);
       return cached || (isShell ? new Response(
         '<!doctype html><meta charset=utf-8><body style="font:16px sans-serif;background:#0d1117;color:#e6edf3;padding:24px">'
-        + '\u{1F4E1} Офлайн, а кеш ще порожній.<br>Відкрий застосунок раз з інтернетом — далі працюватиме й офлайн.</body>',
+        + '\u{1F4E1} Offline, and the cache is still empty.<br>Open the app once with internet — after that it works offline too.</body>',
         { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }) : Response.error());
     }
   })());
@@ -47,7 +47,7 @@ self.addEventListener('push', e => {
   let d = {}; try { d = e.data.json(); } catch (_) { d = { title: 'MeteoStation', body: e.data ? e.data.text() : '' }; }
   const opts = {
     body: d.body || '', icon: d.icon || '?icon=1', badge: '?push_icon=app&badge=1', tag: d.tag || 'meteo', renotify: true,
-    actions: [{ action: 'open', title: 'Відкрити' }],
+    actions: [{ action: 'open', title: 'Open' }],
     data: { url: '?ui=1' }
   };
   if (d.image) opts.image = d.image;

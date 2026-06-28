@@ -60,7 +60,7 @@ async function renderHistory(){
     const cutoffMs = nowMs - rangeSec(currentRange) * 1000;
     const newestMs = await dbNewestTs();
     const newestEpoch = Math.floor(newestMs / 1000);
-    const bin = 0;   /* Ф2: the front computes LOD from local raw — no server binning */
+    const bin = 0;   /* Phase 2: the front computes LOD from local raw — no server binning */
     /* For short ranges keep raw vane[]/speed[] arrays so we can explode each
      * POST into per-2s sub-points (real fine-grained resolution, not just
      * aggregates). Long ranges use server-side binning which strips arrays anyway. */
@@ -124,7 +124,7 @@ async function renderHistory(){
   }
 }
 
-/* ---- Ф2: span-aware LOD point building ----
+/* ---- Phase 2: span-aware LOD point building ----
  * Short spans explode each POST into per-2s sub-points (full detail). Longer spans
  * bin POSTs into ~PT_TARGET buckets so we never build/draw millions of points. The
  * bucket is the IDEAL size for the span (span/PT_TARGET) — finer than the named file
@@ -239,7 +239,7 @@ function drawHistoryCharts(windowOnly = false){
    * Otherwise fall back to the single aggregate point. */
   const SF = SPEED_FACTOR * spdMul();       /* km/h per pulse/sec — matches renderLive */
   const pts = buildHistoryPts();
-  /* Ф2: when zoomed, rebuild the window at a FINER LOD straight from raw (swap to a
+  /* Phase 2: when zoomed, rebuild the window at a FINER LOD straight from raw (swap to a
    * finer tier) instead of clipping the coarse range set — gives real detail on zoom. */
   const vis = chartView ? buildPtsLOD(chartView.start, chartView.end) : pts;
   /* Bounded working set for the LINE charts + smoothing. LTTB (not uniform stride)
@@ -322,8 +322,8 @@ function drawHistoryCharts(windowOnly = false){
   const see = id => _forceCharts || seen[id];   /* _forceCharts = pre-render an off-screen page (swipe neighbour) */
   /* RAW + EXPLODED (short span, per-2s samples present) = no gust band: the samples ARE
    * the spikes. But on a BINNED span (>2h) each point is a POST/bucket mean — the per-2s
-   * gusts are gone, so we MUST draw the max band, else the chart looks flat (the "чому так
-   * мало стрибків на 24h" bug). LTTB/explode set speedMax==speed so the band self-hides
+   * gusts are gone, so we MUST draw the max band, else the chart looks flat (the "why so
+   * few jumps on 24h" bug). LTTB/explode set speedMax==speed so the band self-hides
    * when truly raw. */
   const _span = chartView ? (chartView.end - chartView.start) : rangeSec(currentRange) * 1000;
   const exploded = _span <= EXPLODE_SPAN_MS;
@@ -397,7 +397,7 @@ function noData(svg, W, H, msg){
   svg.innerHTML = `<text x="${(W/2).toFixed(0)}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="12" opacity=".75">${msg || t('no_data')}</text>`;
   svg.__ctx = { pts: [] }; if (svg.__hideTip) svg.__hideTip();
 }
-/* Ф5: graceful empty line-chart — an axis with a baseline + "офлайн" label instead of a
+/* Phase 5: graceful empty line-chart — an axis with a baseline + "offline" label instead of a
  * bare "no data". Speed gets a real 0-line (0 wind is honest); voltage charts get only
  * the axis + label (a 0V line would be a lie). */
 function emptyChart(svg, W, H, key){
@@ -433,7 +433,7 @@ function drawLineChart(svgId, pts, key, keyMax, color, dual=false, win=null){
   const sy = v  => H - BOT - ((Math.min(v, yMax) - yMin) / (yMax - yMin || 1)) * (H - TOP - BOT);
 
   /* break line + area across big time gaps (outages / sparse live tail) so we don't
-   * draw a misleading straight diagonal across missing time (the "прямий прикол"). */
+   * draw a misleading straight diagonal across missing time (the "straight-line artifact"). */
   const dts = []; for (let i = 1; i < pts.length; i++) dts.push(pts[i].ts - pts[i-1].ts);
   dts.sort((a, b) => a - b);
   const medDt = dts[dts.length >> 1] || 0;
@@ -809,7 +809,7 @@ function drawDirTimeline(pts, svgId = 'chart-dir', win = null){
   svg.__ctx = { pts: [] };
 }
 
-/* Ф3: availability/uptime computed ON THE FRONT from local raw (history). Per-moment
+/* Phase 3: availability/uptime computed ON THE FRONT from local raw (history). Per-moment
  * cycle C = rolling median of nearby REGULAR gaps; each gap split 🟢 green ≤~1.5C ·
  * 🟡 yellow ≤ C+GRACE (auto-reboot window, GRACE = 2×C) · 🔴 red beyond. Returns merged
  * segments already clipped to [from,to] + the green/yellow/red totals. Zoom = recompute. */
@@ -883,7 +883,7 @@ function drawUptime(svgId = 'chart-uptime', win = null){
   svg.innerHTML = track + segs + xticks;
   if (meta){
     const fmtDur = ms => { const h = ms / 3600000; return h >= 1 ? h.toFixed(1) + ' h' : Math.round(ms / 60000) + ' min'; };
-    const uptime = up.green + up.yellow;   /* Σ = доступність = онлайн + прострочка (без червоного дауну) */
+    const uptime = up.green + up.yellow;   /* Σ = availability = online + overdue (excludes red downtime) */
     meta.textContent = `🟢 ${fmtDur(up.green)} · 🟡 ${fmtDur(up.yellow)} · 🔴 ${fmtDur(up.red)} · Σ ${fmtDur(uptime)}`;
   }
   svg.__ctx = { pts: [] };

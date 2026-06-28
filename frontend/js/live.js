@@ -201,7 +201,7 @@ async function updateLivePin(){
   reg.showNotification(tx.title, {
     body: tx.body, icon: pushIcon('wind'), badge: pushIcon('app') + '&badge=1',
     tag: 'live-pin', silent: true, renotify: false, requireInteraction: true,
-    actions: [{ action: 'open', title: 'Відкрити' }], data: { url: '?ui=1' }
+    actions: [{ action: 'open', title: t('open') }], data: { url: '?ui=1' }
   });
 }
 /* Backfill speedHistory from server log (last 1h). Runs once per cold open,

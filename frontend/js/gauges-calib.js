@@ -60,7 +60,7 @@ function updateSpeedUnitLabels(){
 
 /* Linear regression on (ts → batt_mv) over the visible window to project
  * when battery will hit BATT_CUTOFF_MV. Needs ≥6h of data and a negative slope
- * to mean anything; otherwise shows "збираємо дані". */
+ * to mean anything; otherwise shows "collecting data". */
 /* Battery pack settings (display/forecast only — firmware just reports voltage).
  * cutoff = empty voltage the "days left" extrapolates to; capacity for mAh est. */
 let BATT_CUTOFF_MV = parseInt(localStorage.getItem('batt_cutoff'))   || 3300;

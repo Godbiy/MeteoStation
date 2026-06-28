@@ -1,29 +1,29 @@
 <!-- ============ CALIBRATION ============ -->
 <div class="page" id="page-calib">
   <div class="card">
-    <h2><span data-i18n="calib_title">🧭 Калібровка сенсорів</span> <span class="meta" id="cap-progress">0/8</span></h2>
+    <h2><span data-i18n="calib_title">🧭 Sensor calibration</span> <span class="meta" id="cap-progress">0/8</span></h2>
     <div class="muted" style="font-size:12px;margin-bottom:10px" data-i18n="calib_capture_hint">
-      Обери джерело → підключись → постав флюгер фізично у напрямок → клацни кнопку (зафіксує поточний байт).
+      Pick a source → connect → point the vane physically at the direction → tap (captures the current byte).
     </div>
     <div class="set-row">
-      <span class="set-lbl" data-i18n="cal_source">Джерело</span>
+      <span class="set-lbl" data-i18n="cal_source">Source</span>
       <div class="seg">
         <button class="seg-btn active" data-capsrc="serial"><svg class="ic"><use href="#ic-plug"/></svg> Serial COM</button>
         <button class="seg-btn" data-capsrc="gsm"><svg class="ic"><use href="#ic-live"/></svg> GSM live</button>
       </div>
     </div>
     <div id="cap-serial" class="row-gap" style="margin-bottom:8px">
-      <button id="cap-connect" class="btn primary"><svg class="ic"><use href="#ic-plug"/></svg> <span data-i18n="connect">Підключити</span></button>
-      <button id="cap-disconnect" class="btn danger" disabled><svg class="ic"><use href="#ic-x"/></svg> <span data-i18n="disconnect">Відключити</span></button>
+      <button id="cap-connect" class="btn primary"><svg class="ic"><use href="#ic-plug"/></svg> <span data-i18n="connect">Connect</span></button>
+      <button id="cap-disconnect" class="btn danger" disabled><svg class="ic"><use href="#ic-x"/></svg> <span data-i18n="disconnect">Disconnect</span></button>
       <label class="row-gap" style="gap:5px"><span class="muted">Baud</span>
         <select id="cap-baud"><option>4800</option><option>9600</option><option>19200</option><option>38400</option><option>115200</option></select>
       </label>
     </div>
     <div id="cap-gsm" class="muted" style="display:none;font-size:12px;margin-bottom:8px" data-i18n="cal_gsm_note">
-      Читаємо живий снапшот із сервера (кожні 2с). Для частих оновлень увімкни LIVE у Налаштуваннях.
+      Reading the live snapshot from the server (every 2s). For faster updates enable LIVE in Settings.
     </div>
     <div id="cap-warn" style="display:none;color:var(--warn);font-size:12px;margin-bottom:8px" data-i18n="webserial_warn">
-      ⚠ Браузер не підтримує Web Serial — потрібен Chrome або Edge (або скористайся GSM live).
+      ⚠ Browser does not support Web Serial — Chrome or Edge required (or use GSM live).
     </div>
     <div class="row-gap" style="margin-bottom:10px;align-items:center;gap:14px">
       <svg id="cal-compass" viewBox="0 0 220 220" style="width:118px;height:118px;flex:none">
@@ -42,7 +42,7 @@
         </g>
       </svg>
       <div style="flex:1;min-width:120px">
-        <div class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px" data-i18n="cur_byte">Поточний байт</div>
+        <div class="muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px" data-i18n="cur_byte">Current byte</div>
         <div style="font-family:monospace;font-size:22px;color:var(--accent)" id="cap-byte">—</div>
         <div class="bits" id="cap-bits" style="margin-top:4px"></div>
         <div style="font-size:14px;font-weight:700;margin-top:6px" id="cal-dir">—</div>
@@ -52,23 +52,23 @@
     <div class="cgrid" id="cap-grid"></div>
   </div>
   <div class="card">
-    <h2 data-i18n="calib_status">Поточна калібровка</h2>
-    <div class="muted" data-i18n="calib_status_hint">Калібровочні точки зберігаються в browser localStorage. Якщо тут пусто — спочатку зайди в Calibration UI.</div>
+    <h2 data-i18n="calib_status">Current calibration</h2>
+    <div class="muted" data-i18n="calib_status_hint">Points saved in browser localStorage. Empty? Visit Calibration UI first.</div>
     <table class="stats" style="margin-top:8px"><thead><tr><th>Direction</th><th>Byte</th></tr></thead>
     <tbody id="calib-readonly"></tbody></table>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button id="calib-reset-default" class="btn"><span data-i18n="calib_reset_default">Скинути до стандарту</span></button>
-      <button id="calib-push" class="btn primary"><span data-i18n="calib_push">Записати на сервер</span></button>
-      <button id="calib-pull" class="btn"><span data-i18n="calib_pull">Завантажити з сервера</span></button>
+      <button id="calib-reset-default" class="btn"><span data-i18n="calib_reset_default">Reset to default</span></button>
+      <button id="calib-push" class="btn primary"><span data-i18n="calib_push">Push to server</span></button>
+      <button id="calib-pull" class="btn"><span data-i18n="calib_pull">Pull from server</span></button>
       <span id="calib-stat" class="stat" style="margin-left:4px"></span>
     </div>
     <div id="calib-srv-meta" class="muted" style="margin-top:6px;font-size:11px"></div>
   </div>
   <div class="card">
-    <h2><span data-i18n="raw_stream">Сирий потік</span> <span class="muted" id="cap-rawstat" style="font-weight:400;font-size:11px"></span></h2>
-    <div class="muted" style="font-size:12px;margin-bottom:8px" data-i18n="raw_hint">Сирий потік з UART (Serial) або GSM-снапшоти — для діагностики.</div>
-    <div style="margin:8px 0"><button id="cap-raw-clear" class="btn" data-i18n="clear_btn">Очистити</button></div>
-    <pre id="cap-raw" style="max-height:240px;overflow:auto;margin:0;padding:10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font:11px/1.5 ui-monospace,monospace;color:var(--fg);white-space:pre-wrap;word-break:break-all">— чекаю на дані —</pre>
+    <h2><span data-i18n="raw_stream">Raw stream</span> <span class="muted" id="cap-rawstat" style="font-weight:400;font-size:11px"></span></h2>
+    <div class="muted" style="font-size:12px;margin-bottom:8px" data-i18n="raw_hint">Raw stream from UART (Serial) or GSM snapshots — for diagnostics.</div>
+    <div style="margin:8px 0"><button id="cap-raw-clear" class="btn" data-i18n="clear_btn">Clear</button></div>
+    <pre id="cap-raw" style="max-height:240px;overflow:auto;margin:0;padding:10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font:11px/1.5 ui-monospace,monospace;color:var(--fg);white-space:pre-wrap;word-break:break-all">— waiting for data —</pre>
   </div>
 </div>
 

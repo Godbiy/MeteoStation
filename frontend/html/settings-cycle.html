@@ -1,18 +1,18 @@
   <div class="card">
-    <h2 data-i18n="post_interval">📡 Інтервал POST</h2>
-    <div class="muted" style="margin-bottom:8px"><span data-i18n="cur_setting">Поточне</span>: <span id="cur-cfg">—</span></div>
+    <h2 data-i18n="post_interval">📡 POST interval</h2>
+    <div class="muted" style="margin-bottom:8px"><span data-i18n="cur_setting">Current</span>: <span id="cur-cfg">—</span></div>
     <div class="set-field full"><select id="iv-sel"></select></div>
     <div class="stat" id="iv-stat"></div>
     <div class="card-actions">
-      <button id="iv-apply" class="btn primary" disabled data-i18n="apply">Застосувати</button>
+      <button id="iv-apply" class="btn primary" disabled data-i18n="apply">Apply</button>
     </div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="speed_calib">🌀 Калібровка швидкості</h2>
-    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="speed_calib_hint">Скільки км/год дає 1 імпульс/с анемометра. Міняє лише відображення на дашборді (прошивка шле сирі імпульси).</div>
+    <h2 data-i18n="speed_calib">🌀 Speed calibration</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="speed_calib_hint">How many km/h equals 1 anemometer pulse/sec. Display-only (firmware sends raw pulse counts).</div>
     <div class="set-field">
-      <span class="lbl" data-i18n="speed_units">Одиниці</span>
+      <span class="lbl" data-i18n="speed_units">Units</span>
       <div class="ctl">
         <select id="unit-sel">
           <option value="kmh">km/h</option>
@@ -23,36 +23,36 @@
       </div>
     </div>
     <div class="set-field">
-      <span class="lbl">1 імп/с =</span>
-      <div class="ctl"><input id="sf-input" type="number" step="0.01" min="0.01"><span class="unit">км/год</span></div>
+      <span class="lbl">1 imp/s =</span>
+      <div class="ctl"><input id="sf-input" type="number" step="0.01" min="0.01"><span class="unit">km/h</span></div>
     </div>
     <div class="set-note">↔ <span id="sf-inverse">—</span></div>
     <div class="card-actions">
-      <button id="sf-apply" class="btn primary" data-i18n="apply">Застосувати</button>
-      <button id="sf-reset" class="btn" data-i18n="reset_btn">Скинути</button>
+      <button id="sf-apply" class="btn primary" data-i18n="apply">Apply</button>
+      <button id="sf-reset" class="btn" data-i18n="reset_btn">Reset</button>
     </div>
     <div class="stat" id="sf-stat" style="margin-top:6px;text-align:center"></div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="batt_settings">🔋 Батарея</h2>
-    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="batt_settings_hint">Специфікації пакета — для прогнозу «скільки лишилось». Лише розрахунок на дашборді (прошивка шле тільки напругу).</div>
+    <h2 data-i18n="batt_settings">🔋 Battery</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="batt_settings_hint">Pack specs — for the "time left" forecast. Display/calc only (firmware reports voltage only).</div>
     <div class="set-field">
-      <span class="lbl" data-i18n="batt_cap">Ємність</span>
+      <span class="lbl" data-i18n="batt_cap">Capacity</span>
       <div class="ctl"><input id="bs-cap" type="number" step="50" min="0"><span class="unit">mAh</span></div>
     </div>
     <div class="set-field">
-      <span class="lbl" data-i18n="batt_cut">Відсічка</span>
+      <span class="lbl" data-i18n="batt_cut">Cutoff</span>
       <div class="ctl"><input id="bs-cut" type="number" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
     </div>
     <div class="set-field">
-      <span class="lbl" data-i18n="solar_w">Соляр-панель</span>
+      <span class="lbl" data-i18n="solar_w">Solar panel</span>
       <div class="ctl"><input id="solar-w" type="number" step="0.5" min="0"><span class="unit">W</span></div>
     </div>
     <div class="set-note" id="solar-note"></div>
     <div class="card-actions">
-      <button id="bs-apply" class="btn primary" data-i18n="apply">Застосувати</button>
-      <button id="bs-reset" class="btn" data-i18n="reset_btn">Скинути</button>
+      <button id="bs-apply" class="btn primary" data-i18n="apply">Apply</button>
+      <button id="bs-reset" class="btn" data-i18n="reset_btn">Reset</button>
     </div>
     <div class="stat" id="bs-stat" style="margin-top:6px;text-align:center"></div>
   </div>

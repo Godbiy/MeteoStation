@@ -12,7 +12,7 @@ async function updateCacheStats(){
   $('cache-quota').textContent = est.quota ? (est.quota / 1024 / 1024).toFixed(0) + ' MB' : 'unknown';
 }
 $('clear-cache-btn').addEventListener('click', async () => {
-  if (!(await uiConfirm('Видалити кешовані історичні дані?'))) return;
+  if (!(await uiConfirm(t('confirm_clear_cache')))) return;
   await dbClear();
   history = [];
   speedHistory = [];
@@ -41,7 +41,7 @@ $('clear-cache-btn').addEventListener('click', async () => {
   toast('cache cleared');
 });
 
-/* ---- Ф1: full cache sync with a staged progress modal (button-triggered) ---- */
+/* ---- Phase 1: full cache sync with a staged progress modal (button-triggered) ---- */
 function syncStep(id, state){
   const li = document.querySelector(`#sync-steps li[data-step="${id}"]`);
   if (!li) return;
@@ -324,7 +324,7 @@ function pushIcon(type){ return SRV + '?push_icon=' + type; }
     });
     localStorage.setItem('alerts_cfg', JSON.stringify(ALERTS));
     if (typeof spushSyncCfg === 'function') spushSyncCfg();   /* sync the new thresholds to the server */
-    toast(t('alerts_saved') || 'збережено ✓');
+    toast(t('alerts_saved'));
   });
 })();
 
@@ -367,27 +367,27 @@ function spushCfg(){
 async function spushReg(){
   /* Verbose: report the failing step into sp-stat (no phone console available). */
   const say = m => { const s = $('sp-stat'); if (s) s.textContent = m; };
-  if (testMode){ say('тест-режим'); return null; }
-  if (!('serviceWorker' in navigator)){ say('нема serviceWorker'); return null; }
-  if (!('PushManager' in window)){ say('нема PushManager (iOS<16.4?)'); return null; }
+  if (testMode){ say('test mode'); return null; }
+  if (!('serviceWorker' in navigator)){ say('no serviceWorker'); return null; }
+  if (!('PushManager' in window)){ say('no PushManager (iOS<16.4?)'); return null; }
   try {
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted'){ say('дозвіл: ' + perm); return null; }
-    say('реєструю SW…');
+    if (perm !== 'granted'){ say('permission: ' + perm); return null; }
+    say('registering SW…');
     const reg = await swReady();
-    say('беру VAPID…');
+    say('fetching VAPID…');
     const { key } = await fjson(SRV + '?push_pub');
-    if (!key){ say('сервер не дав ключ'); return null; }
+    if (!key){ say('server returned no key'); return null; }
     let sub = await reg.pushManager.getSubscription();
-    if (!sub){ say('підписуюсь…'); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(key) }); }
-    say('зберігаю на сервері…');
+    if (!sub){ say('subscribing…'); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(key) }); }
+    say('saving to server…');
     const r = await fetch(SRV + '?push_subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub.toJSON(), cfg: spushCfg(), label: deviceLabel() }) });
     const j = await r.json().catch(() => ({}));
-    say('✓ підписок: ' + (j.count ?? '?'));
+    say('✓ subs: ' + (j.count ?? '?'));
     if (typeof loadDeviceList === 'function') loadDeviceList();
     return sub;
   } catch (e) {
-    say('помилка: ' + (e && e.message ? e.message : e));
+    say('error: ' + (e && e.message ? e.message : e));
     return null;
   }
 }
@@ -430,7 +430,7 @@ async function loadDeviceList(){
       try { await fetch(SRV + '?push_remove', { method: 'POST', body: JSON.stringify({ id: b.dataset.id }) }); } catch {}
       loadDeviceList();
     }));
-  } catch { box.innerHTML = `<div class="set-note">помилка</div>`; }
+  } catch { box.innerHTML = `<div class="set-note">${t('error_word')}</div>`; }
 }
 (function(){
   const sw = $('sp-sw'), stat = $('sp-stat');
@@ -442,23 +442,23 @@ async function loadDeviceList(){
     stat.textContent = '…';
     if (sw.checked){
       const s = await spushReg();            /* leaves a diagnostic in sp-stat */
-      if (s){ on = true; localStorage.setItem('spush_on', '1'); toast('серверний пуш увімкнено ✓'); }
+      if (s){ on = true; localStorage.setItem('spush_on', '1'); toast(t('spush_enabled')); }
       reflect();                             /* if reg failed, on stays false → switch flips back */
     } else {
       await spushUnreg();
-      on = false; localStorage.setItem('spush_on', '0'); toast('серверний пуш вимкнено');
-      stat.textContent = 'вимкнено'; reflect();
+      on = false; localStorage.setItem('spush_on', '0'); toast(t('spush_disabled'));
+      stat.textContent = t('disabled'); reflect();
     }
   });
   async function runPushTest(url){
     const res = $('sp-test-res'); res.textContent = '…';
     try {
       const r = await fjson(SRV + url);
-      if (!r.subs){ res.textContent = '0 підписок — спершу натисни Увімк'; return; }
+      if (!r.subs){ res.textContent = t('no_subs_enable'); return; }
       const ok = r.sent.some(s => s.code >= 200 && s.code < 300);
       const bad = r.sent.filter(s => !(s.code >= 200 && s.code < 300)).map(s => s.code);
-      res.textContent = `підписок: ${r.subs} · ${r.sent.length} пуш${ok ? ' ✓ прийнято' : ''}${bad.length ? ' · ✗ ' + bad.join(',') : ''}`;
-    } catch { res.textContent = 'помилка запиту'; }
+      res.textContent = `${t('subs_word')}: ${r.subs} · ${r.sent.length} ${t('push_word')}${ok ? ' ✓ ' + t('accepted_word') : ''}${bad.length ? ' · ✗ ' + bad.join(',') : ''}`;
+    } catch { res.textContent = t('request_error'); }
   }
   $('sp-test')?.addEventListener('click', () => runPushTest('?push_test'));
   $('sp-testall')?.addEventListener('click', () => runPushTest('?push_testall'));
@@ -502,18 +502,18 @@ async function loadDeviceList(){
   sw.addEventListener('change', async () => {
     if (sw.checked){
       stat.textContent = '…';
-      if (!('Notification' in window)){ stat.textContent = 'браузер не підтримує'; on = false; reflect(); return; }
+      if (!('Notification' in window)){ stat.textContent = t('browser_unsupported'); on = false; reflect(); return; }
       if (Notification.permission !== 'granted') await Notification.requestPermission();
-      if (Notification.permission !== 'granted'){ stat.textContent = 'дозвіл відхилено'; on = false; reflect(); return; }
+      if (Notification.permission !== 'granted'){ stat.textContent = t('perm_denied'); on = false; reflect(); return; }
       on = true; localStorage.setItem('live_pin', '1'); reflect();
       const sub = await spushReg();        /* subscribe + push livePin cfg for background */
       updateLivePin();                     /* show immediately (foreground) */
-      stat.textContent = sub ? '✓ закріплено · фон через пуш' : '✓ foreground; увімкни Серверний пуш для фону';
+      stat.textContent = sub ? t('livepin_ok_bg') : t('livepin_ok_fg');
     } else {
       on = false; localStorage.setItem('live_pin', '0'); reflect();
       await spushSyncCfg();                /* stop server pin pushes */
       updateLivePin();                     /* close the pin */
-      stat.textContent = 'вимкнено';
+      stat.textContent = t('disabled');
     }
   });
 })();
@@ -533,7 +533,7 @@ setTimeout(async () => {
 }, 0);
 
 $('wipe-btn').addEventListener('click', async () => {
-  if (!(await uiConfirm('Видалити всі дані на сервері?'))) return;
+  if (!(await uiConfirm(t('confirm_wipe_server')))) return;
   $('wipe-stat').textContent = '…';
   try { await fetch(SRV + '?wipe_log=1&key=' + CALIB_KEY + '&t=' + Date.now()); $('wipe-stat').textContent='✓'; $('wipe-stat').className='stat ok'; toast('wiped'); }
   catch (e){ $('wipe-stat').textContent='err'; $('wipe-stat').className='stat err'; }
@@ -541,7 +541,7 @@ $('wipe-btn').addEventListener('click', async () => {
 
 /* Smoothing — single global setting, mirrored on two selectors:
  *   #smooth-sel       on History tab
- *   #smooth-sel-live  on Live tab (Швидкість за останню годину)
+ *   #smooth-sel-live  on Live tab (Speed last hour)
  * Change in either → sync both, persist, redraw both charts. */
 function syncSmoothSelectors(srcId){
   const src = $(srcId); if (!src) return;

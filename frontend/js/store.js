@@ -1,4 +1,4 @@
-/* =========== Cache store (Ф0 + tier files) ===========
+/* =========== Cache store (Phase 0 + tier files) ===========
  * Single source of truth for history on the front. Holds ALL posts in memory (sorted
  * by ts) as the working copy; persists to an append-only NDJSON FILE in OPFS, else
  * IndexedDB (older phones). Same db* API the rest of the app calls.

@@ -96,7 +96,7 @@ function swReady(ms = 12000){
   const work = (async () => {
     let reg = await navigator.serviceWorker.register('?sw=1').catch(() => null);
     if (!reg) reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) throw new Error('SW не зареєструвався');
+    if (!reg) throw new Error('SW did not register');
     if (reg.active) return reg;
     const sw = reg.installing || reg.waiting;
     if (sw){
@@ -110,7 +110,7 @@ function swReady(ms = 12000){
   })();
   return Promise.race([
     work,
-    new Promise((_, rej) => setTimeout(() => rej(new Error('SW не активувався — перезавантаж')), ms))
+    new Promise((_, rej) => setTimeout(() => rej(new Error('SW did not activate — reload')), ms))
   ]);
 }
 

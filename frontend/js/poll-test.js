@@ -1,5 +1,5 @@
 /* =========== POLLING =========== */
-/* Ф4: keep the master cache fresh on EVERY poll (any tab) — live posts land in the
+/* Phase 4: keep the master cache fresh on EVERY poll (any tab) — live posts land in the
  * same store as regular ones. During live the poll cadence is ~2s, so the tail syncs
  * fast. Tiny: only `?since=newest` (a handful of new posts). Empty cache → leave the
  * full pull to the Sync button. */

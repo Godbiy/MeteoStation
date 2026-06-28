@@ -1,76 +1,76 @@
   <div class="card">
-    <h2 data-i18n="alerts">🔔 Сповіщення</h2>
-    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="alerts_hint">Які серверні пуші приходять і за якими порогами. Доставку на цей пристрій увімкни нижче у «Серверний пуш».</div>
+    <h2 data-i18n="alerts">🔔 Alerts</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="alerts_hint">Which server pushes you get and at what thresholds. Enable delivery to this device below in "Server push".</div>
     <div id="al-types" style="display:flex;flex-direction:column">
       <div class="al-type">
-        <label class="al-head"><input type="checkbox" data-al="battLow"><span data-i18n="alert_batt_lbl">Батарея низька &lt;</span></label>
+        <label class="al-head"><input type="checkbox" data-al="battLow"><span data-i18n="alert_batt_lbl">Battery low &lt;</span></label>
         <div class="ctl"><input type="number" data-th="battLow" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
       </div>
       <div class="al-type">
-        <label class="al-head"><input type="checkbox" data-al="battCrit"><span data-i18n="alert_crit_lbl">Батарея критична &lt;</span></label>
+        <label class="al-head"><input type="checkbox" data-al="battCrit"><span data-i18n="alert_crit_lbl">Battery critical &lt;</span></label>
         <div class="ctl"><input type="number" data-th="battCrit" step="50" min="2000" max="4200"><span class="unit">mV</span></div>
       </div>
       <div class="al-type">
-        <label class="al-head"><input type="checkbox" data-al="windHigh"><span data-i18n="alert_wind_lbl">Вітер &gt;</span></label>
+        <label class="al-head"><input type="checkbox" data-al="windHigh"><span data-i18n="alert_wind_lbl">Wind &gt;</span></label>
         <div class="ctl"><input type="number" data-th="windHigh" step="1" min="0"><span class="unit" id="al-wind-unit">km/h</span></div>
       </div>
       <div class="al-type">
-        <label class="al-head"><input type="checkbox" data-al="solar"><span data-i18n="alert_solar_lbl">Заряд / сонце (старт, стоп, повна)</span></label>
+        <label class="al-head"><input type="checkbox" data-al="solar"><span data-i18n="alert_solar_lbl">Charge / sun (start, stop, full)</span></label>
       </div>
       <div class="al-type">
-        <label class="al-head"><input type="checkbox" data-al="offline"><span data-i18n="alert_offline_lbl">Офлайн (нема даних) &gt;</span></label>
-        <div class="ctl"><input type="number" data-th="offline" step="5" min="5"><span class="unit" data-i18n="minutes">хв</span></div>
+        <label class="al-head"><input type="checkbox" data-al="offline"><span data-i18n="alert_offline_lbl">Offline (no data) &gt;</span></label>
+        <div class="ctl"><input type="number" data-th="offline" step="5" min="5"><span class="unit" data-i18n="minutes">min</span></div>
       </div>
       <div class="al-type">
-        <label class="al-head"><input type="checkbox" data-al="online"><span data-i18n="alert_online_lbl">Знов онлайн (відновився)</span></label>
+        <label class="al-head"><input type="checkbox" data-al="online"><span data-i18n="alert_online_lbl">Back online (recovered)</span></label>
       </div>
     </div>
     <div class="card-actions">
-      <button id="al-apply" class="btn primary" data-i18n="apply">Застосувати</button>
+      <button id="al-apply" class="btn primary" data-i18n="apply">Apply</button>
     </div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="spush">📡 Серверний пуш (фон)</h2>
-    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="spush_hint">Доставляє сповіщення навіть коли апку закрито. Пороги беруться з «Сповіщень» вище. По кожному пості: батарея, вітер, «знов онлайн» (офлайн — лише foreground).</div>
+    <h2 data-i18n="spush">📡 Server push (bg)</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="spush_hint">Delivers notifications even when the app is closed. Thresholds come from Alerts above. Per POST: battery, wind. Offline/Live pushes run via the background watchdog (below) or an external cron.</div>
     <div class="set-row toggle">
-      <span class="set-lbl" data-i18n="spush_lbl">На цей пристрій</span>
+      <span class="set-lbl" data-i18n="spush_lbl">This device</span>
       <div class="sw-wrap">
         <label class="switch"><input type="checkbox" id="sp-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
     <div class="stat" id="sp-stat" style="margin-top:2px;text-align:center"></div>
     <div class="set-row toggle">
-      <span class="set-lbl" data-i18n="livepin_lbl">📌 Live у шторці</span>
+      <span class="set-lbl" data-i18n="livepin_lbl">📌 Live in shade</span>
       <div class="sw-wrap">
         <label class="switch"><input type="checkbox" id="lp-sw"><span class="track"><span class="knob"></span></span></label>
       </div>
     </div>
-    <div class="set-note" data-i18n="livepin_hint">Закріплює поточні дані у шторці, тихо оновлюється в фоні щопоста (~раз на цикл). Не дзвенить.</div>
+    <div class="set-note" data-i18n="livepin_hint">Pins current data to the shade, silently refreshed in the background each POST (~once per cycle). No buzz.</div>
     <div class="stat" id="lp-stat" style="text-align:center"></div>
     <div class="card-actions">
-      <button id="sp-test" class="btn" data-i18n="spush_test">Тест із сервера</button>
-      <button id="sp-testall" class="btn" data-i18n="spush_testall">Усі типи</button>
+      <button id="sp-test" class="btn" data-i18n="spush_test">Test from server</button>
+      <button id="sp-testall" class="btn" data-i18n="spush_testall">All types</button>
     </div>
     <div class="set-note" id="sp-test-res" style="text-align:center"></div>
     <div class="set-field" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
-      <span class="lbl" data-i18n="wd_lbl">🛰️ Фоновий вартовий</span>
-      <div class="ctl"><button id="wd-start" class="btn sm" data-i18n="wd_start">Увімкнути</button></div>
+      <span class="lbl" data-i18n="wd_lbl">🛰️ Background watchdog</span>
+      <div class="ctl"><button id="wd-start" class="btn sm" data-i18n="wd_start">Enable</button></div>
     </div>
-    <div class="set-note" data-i18n="wd_hint">Тримає серверний цикл живим, щоб офлайн/Live-пуші йшли навіть без відкритого дашборду. Для повної надійності додай зовнішній крон (cron-job.org → ?tick=1).</div>
+    <div class="set-note" data-i18n="wd_hint">Keeps the server-side loop alive so offline/Live pushes fire even with no dashboard open. For full reliability add an external cron (cron-job.org → ?tick=1).</div>
     <div class="stat" id="wd-stat" style="text-align:center"></div>
     <div class="set-field" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
-      <span class="lbl" data-i18n="spush_devices">Підписані пристрої</span>
+      <span class="lbl" data-i18n="spush_devices">Subscribed devices</span>
       <div class="ctl"><button id="sp-refresh" class="btn sm" title="refresh">↻</button></div>
     </div>
     <div id="sp-dev-list" style="display:flex;flex-direction:column;gap:6px;font-size:12px;margin-top:4px"></div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="live_mode">🔴 Live режим (для калібровки)</h2>
-    <div class="muted" style="margin-bottom:8px" data-i18n="live_hint">Прошивка стає у нон-стоп live POSTs (3с цикл). Жере батарею, тільки для калібровки.</div>
+    <h2 data-i18n="live_mode">🔴 Live mode (for calibration)</h2>
+    <div class="muted" style="margin-bottom:8px" data-i18n="live_hint">Firmware enters non-stop live POSTs (3s cycle). Eats battery, calibration only.</div>
     <div class="set-row toggle" style="margin-top:4px">
-      <span class="set-lbl"><svg class="ic" style="color:var(--err)"><use href="#ic-rec"/></svg> <span data-i18n="live_posts">Нон-стоп Live POSTs</span></span>
+      <span class="set-lbl"><svg class="ic" style="color:var(--err)"><use href="#ic-rec"/></svg> <span data-i18n="live_posts">Non-stop Live POSTs</span></span>
       <div class="sw-wrap">
         <label class="switch"><input type="checkbox" id="live-sw"><span class="track"><span class="knob"></span></span></label>
       </div>

@@ -24,10 +24,10 @@ document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click
 /* Custom date-range picker (from..to). Fetches 30d and clamps via chartView. */
 $('r-apply').addEventListener('click', async () => {
   const fromV = $('r-from').value, toV = $('r-to').value;
-  if (!fromV || !toV){ toast('обери обидві дати', true); return; }
+  if (!fromV || !toV){ toast(t('pick_both_dates'), true); return; }
   const fromTs = new Date(fromV + 'T00:00:00').getTime();
   const toTs   = new Date(toV   + 'T23:59:59').getTime();
-  if (toTs <= fromTs){ toast('кінець має бути після початку', true); return; }
+  if (toTs <= fromTs){ toast(t('end_after_start'), true); return; }
   /* Pick smallest preset that covers the span */
   const spanH = (toTs - fromTs) / 3600000;
   const preset = spanH <= 1 ? '1h' : spanH <= 6 ? '6h' : spanH <= 24 ? '24h' : spanH <= 168 ? '7d' : '30d';

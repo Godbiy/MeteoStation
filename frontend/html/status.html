@@ -1,7 +1,7 @@
 <!-- ============ STATUS ============ -->
 <div class="page" id="page-status">
   <div class="card">
-    <h2 data-i18n="current_state">Поточний стан модуля</h2>
+    <h2 data-i18n="current_state">Current firmware state</h2>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
       <div id="st-icon"><svg class="ic"><use href="#ic-status"/></svg></div>
       <div style="flex:1;min-width:160px">
@@ -10,7 +10,7 @@
         <div style="font-size:12px;margin-top:3px;font-weight:600" id="st-collect"></div>
       </div>
       <div style="text-align:right">
-        <div class="muted" style="font-size:11px" data-i18n="next_event">наступна подія</div>
+        <div class="muted" style="font-size:11px" data-i18n="next_event">next event</div>
         <div style="font-size:24px;font-weight:700;font-feature-settings:'tnum'" id="st-countdown">—</div>
         <div id="st-health" style="font-size:11px;font-weight:600;margin-top:2px"></div>
       </div>
@@ -30,7 +30,7 @@
   </div>
 
   <div class="card">
-    <h2 data-i18n="online_24h">Онлайн за 24 год</h2>
+    <h2 data-i18n="online_24h">Online in last 24h</h2>
     <div style="text-align:center">
       <div style="font-size:34px;font-weight:800;font-feature-settings:'tnum';line-height:1.1;color:var(--ok)" id="st-online-big">—</div>
       <div class="muted" style="font-size:12px;margin-top:5px" id="st-online-sub">—</div>
@@ -38,9 +38,9 @@
   </div>
 
   <div class="card">
-    <h2 data-i18n="state_timeline">Робочий цикл</h2>
+    <h2 data-i18n="state_timeline">Work cycle</h2>
     <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="state_hint">
-      Прошивка послідовно проходить ці стани. Поточний підсвічений.
+      Firmware steps through these states in order. Current is highlighted.
     </div>
     <div id="st-machine" style="display:flex;gap:6px;flex-wrap:wrap"></div>
   </div>
@@ -48,11 +48,11 @@
   <div class="card">
     <h2 data-i18n="pending_changes">⏳ Pending changes</h2>
     <div class="muted" style="font-size:11px;margin-bottom:8px" data-i18n="pending_hint">
-      Зміни (інтервал/live) застосовуються на наступному POST модуля. Тут видно статус.
+      Changes (interval/live) apply on the next module POST.
     </div>
     <div id="pending-list"></div>
     <div class="muted" id="pending-empty" style="text-align:center;padding:10px;font-size:12px">
-      <span data-i18n="no_pending">немає очікуваних змін</span>
+      <span data-i18n="no_pending">no pending changes</span>
     </div>
   </div>
 
@@ -65,7 +65,7 @@
   </div>
 
   <div class="card">
-    <h2 data-i18n="raw_config">Серверний config</h2>
+    <h2 data-i18n="raw_config">Server config</h2>
     <div id="st-raw-config" class="kv-list">—</div>
   </div>
 </div>

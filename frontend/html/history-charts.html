@@ -1,10 +1,10 @@
   <div class="card">
     <h2>
-      <span data-i18n="speed_history">Швидкість вітру</span>
+      <span data-i18n="speed_history">Wind speed</span>
       <span class="meta" id="hi-speed-meta"></span>
     </h2>
     <div class="row-gap" style="margin:-2px 0 8px;font-size:11px;color:var(--mut);align-items:center">
-      <span data-i18n="smooth">згладження</span>
+      <span data-i18n="smooth">smoothing</span>
       <select id="smooth-sel" style="font-size:11px;padding:2px 4px">
         <option value="0">raw</option>
         <option value="5">10s</option>
@@ -20,22 +20,22 @@
   </div>
 
   <div class="card">
-    <h2><span data-i18n="wind_timeline">Wind timeline · швидкість + напрямок</span> <span class="meta" data-i18n="wt_meta">стрілки показують напрямок</span></h2>
+    <h2><span data-i18n="wind_timeline">Wind timeline · speed + direction</span> <span class="meta" data-i18n="wt_meta">arrows show wind direction</span></h2>
     <svg id="chart-wt" viewBox="0 0 600 220" style="width:100%;height:220px"></svg>
   </div>
 
   <div class="card">
-    <h2><span data-i18n="dir_timeline">Напрямок вітру</span> <span class="meta" data-i18n="dirt_meta">8 румбів у часі</span></h2>
+    <h2><span data-i18n="dir_timeline">Wind direction</span> <span class="meta" data-i18n="dirt_meta">8 compass points over time</span></h2>
     <svg id="chart-dir" viewBox="0 0 600 170" style="width:100%;height:170px"></svg>
   </div>
 
   <div class="card">
-    <h2><span data-i18n="wind_rose">Wind Rose</span> <span class="meta" data-i18n="rose_meta">% часу за напрямком</span></h2>
+    <h2><span data-i18n="wind_rose">Wind Rose</span> <span class="meta" data-i18n="rose_meta">% time per direction</span></h2>
     <svg id="chart-rose" viewBox="0 0 220 220" style="width:100%;max-width:220px;display:block;margin:0 auto"></svg>
   </div>
 
   <div class="card">
-    <h2 data-i18n="battery_chart">🔋 Батарея</h2>
+    <h2 data-i18n="battery_chart">🔋 Battery</h2>
     <svg id="chart-batt" viewBox="0 0 600 140" style="width:100%;height:140px"></svg>
     <div id="batt-forecast" style="margin-top:10px;padding:8px 10px;border-radius:5px;font-size:12px;background:var(--panel2);border:1px solid var(--line);display:none">
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:baseline">
@@ -48,53 +48,53 @@
   </div>
 
   <div class="card">
-    <h2 data-i18n="signal_chart">📶 Сигнал GSM (CSQ)</h2>
+    <h2 data-i18n="signal_chart">📶 GSM signal (CSQ)</h2>
     <svg id="chart-signal" viewBox="0 0 600 120" style="width:100%;height:120px"></svg>
   </div>
 
   <div class="card">
-    <h2 data-i18n="solar_chart">☀ Сонячна напруга</h2>
+    <h2 data-i18n="solar_chart">☀ Solar voltage</h2>
     <svg id="chart-solar" viewBox="0 0 600 140" style="width:100%;height:140px"></svg>
   </div>
 
   <div class="card">
-    <h2 data-i18n="uptime_chart">Доступність (uptime)</h2>
+    <h2 data-i18n="uptime_chart">Availability (uptime)</h2>
     <svg id="chart-uptime" viewBox="0 0 600 70" style="width:100%;height:70px"></svg>
     <!-- numbers BELOW the chart (readable on mobile, was cramped in the header) -->
     <div id="uptime-meta" style="margin-top:8px;text-align:center;font-size:14px;font-weight:600;font-feature-settings:'tnum';line-height:1.7"></div>
     <!-- colour legend -->
     <div style="margin-top:4px;text-align:center;font-size:11px;color:var(--mut);line-height:1.6">
-      <span style="color:#3fb950">●</span> <span data-i18n="uptime_online">онлайн</span> ·
-      <span style="color:#d29922">●</span> <span data-i18n="uptime_overdue">прострочка</span> ·
-      <span style="color:#f85149">●</span> <span data-i18n="uptime_down">простій</span>
+      <span style="color:#3fb950">●</span> <span data-i18n="uptime_online">online</span> ·
+      <span style="color:#d29922">●</span> <span data-i18n="uptime_overdue">overdue</span> ·
+      <span style="color:#f85149">●</span> <span data-i18n="uptime_down">down</span>
     </div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="summary">Статистика</h2>
+    <h2 data-i18n="summary">Stats</h2>
     <table class="stats" id="stats-table">
-      <thead><tr><th data-i18n="metric">Метрика</th><th data-i18n="min">min</th><th data-i18n="avg">avg</th><th data-i18n="max">max</th></tr></thead>
+      <thead><tr><th data-i18n="metric">Metric</th><th data-i18n="min">min</th><th data-i18n="avg">avg</th><th data-i18n="max">max</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
 
   <div class="card">
-    <h2 data-i18n="daily_summary">📅 По днях</h2>
+    <h2 data-i18n="daily_summary">📅 Daily summary</h2>
     <table class="stats" id="daily-table">
-      <thead><tr><th data-i18n="day">День</th><th data-i18n="avg_kmh">avg km/h</th><th data-i18n="max_kmh">max km/h</th><th data-i18n="dom_dir">dom. напр.</th></tr></thead>
+      <thead><tr><th data-i18n="day">Day</th><th data-i18n="avg_kmh">avg km/h</th><th data-i18n="max_kmh">max km/h</th><th data-i18n="dom_dir">dom. dir</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
 
   <div class="card">
-    <h2 data-i18n="hourly_heat">🕐 Heatmap по годинах</h2>
-    <div class="muted" style="margin-bottom:8px;font-size:11px" data-i18n="hm_hint">Колір = середня швидкість у цій годині дня</div>
+    <h2 data-i18n="hourly_heat">🕐 Hourly heatmap</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:11px" data-i18n="hm_hint">Color = average wind speed for that hour of day</div>
     <div class="row-gap" style="margin-bottom:8px;align-items:center">
-      <button id="hm-all" class="btn sm" data-i18n="all_days">всі дні</button>
+      <button id="hm-all" class="btn sm" data-i18n="all_days">all days</button>
       <input type="date" id="hm-date" class="day-select" style="max-width:170px">
       <button id="hm-prev" class="btn sm" title="prev day">‹</button>
       <button id="hm-next" class="btn sm" title="next day">›</button>
-      <button id="hm-today" class="btn sm" data-i18n="today">сьогодні</button>
+      <button id="hm-today" class="btn sm" data-i18n="today">today</button>
       <span class="muted" id="hm-mode" style="margin-left:auto;font-size:11px"></span>
     </div>
     <svg id="chart-hm" viewBox="0 0 600 180" style="width:100%;height:180px"></svg>

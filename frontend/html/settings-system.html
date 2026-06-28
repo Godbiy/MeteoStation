@@ -1,44 +1,44 @@
   <div class="card">
-    <h2 data-i18n="local_cache">💾 Локальний кеш (IndexedDB)</h2>
+    <h2 data-i18n="local_cache">💾 Local cache (IndexedDB)</h2>
     <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="cache_hint">
-      Дані зберігаються в браузері (IndexedDB, ~50MB+). Підвантажуємо лише нові точки через ?since. Сервер gzip-ує відповідь.
+      Data is stored in the browser (IndexedDB, ~50MB+). Only new points are fetched via ?since. The server gzips the response.
     </div>
     <div class="row-gap" style="justify-content:space-between;font-size:12px">
-      <span class="muted">Точок: <b id="cache-pts" style="color:var(--fg)">—</b></span>
+      <span class="muted">Points: <b id="cache-pts" style="color:var(--fg)">—</b></span>
       <span class="muted">Storage: <b id="cache-size" style="color:var(--fg)">—</b></span>
       <span class="muted">Quota: <b id="cache-quota" style="color:var(--mut)">—</b></span>
     </div>
     <div class="set-field">
-      <span class="lbl" data-i18n="retention">Зберігати</span>
+      <span class="lbl" data-i18n="retention">Retention</span>
       <div class="ctl">
         <select id="retention-sel">
-          <option value="7"   data-i18n="ret_7d">7 днів</option>
-          <option value="30"  data-i18n="ret_30d">30 днів</option>
-          <option value="180" data-i18n="ret_180d">6 міс</option>
-          <option value="365" data-i18n="ret_365d">1 рік</option>
-          <option value="0"   data-i18n="ret_unl">безлімітно</option>
+          <option value="7"   data-i18n="ret_7d">7 days</option>
+          <option value="30"  data-i18n="ret_30d">30 days</option>
+          <option value="180" data-i18n="ret_180d">6 mo</option>
+          <option value="365" data-i18n="ret_365d">1 yr</option>
+          <option value="0"   data-i18n="ret_unl">unlimited</option>
         </select>
       </div>
     </div>
     <div class="card-actions">
-      <button id="sync-btn" class="btn primary" data-i18n="sync_btn">⟳ Синхронізувати кеш</button>
-      <button id="clear-cache-btn" class="btn danger" data-i18n="clear_cache">Очистити кеш</button>
+      <button id="sync-btn" class="btn primary" data-i18n="sync_btn">⟳ Sync cache</button>
+      <button id="clear-cache-btn" class="btn danger" data-i18n="clear_cache">Clear cache</button>
     </div>
     <div class="stat" id="cache-stat" style="margin-top:6px;text-align:center"></div>
     <div class="set-field" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
-      <span class="lbl" data-i18n="build_label">Версія застосунку</span>
+      <span class="lbl" data-i18n="build_label">App build:</span>
       <div class="ctl"><b id="build-ver" style="color:var(--fg);font-size:12px">__BUILD_VER__</b></div>
     </div>
     <div class="card-actions">
-      <button id="force-update-btn" class="btn primary" data-i18n="force_update">↻ Оновити застосунок</button>
+      <button id="force-update-btn" class="btn primary" data-i18n="force_update">↻ Force update</button>
     </div>
     <div class="stat" id="force-stat" style="margin-top:6px;text-align:center"></div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="export_title">⤓ Експорт даних</h2>
+    <h2 data-i18n="export_title">⤓ Export data</h2>
     <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="export_hint">
-      Вивантажити всю локальну історію. Графіки можна зберегти в PNG кнопкою на кожній картці.
+      Download the full local history. Charts → PNG via the button on each card.
     </div>
     <div class="card-actions">
       <button class="btn" data-export="csv" data-i18n="export_csv">⤓ CSV</button>
@@ -49,13 +49,13 @@
   <div class="card">
     <h2 data-i18n="danger">⚠ Danger</h2>
     <div class="card-actions">
-      <button id="wipe-btn" class="btn danger" data-i18n="wipe">Видалити всі дані на сервері</button>
+      <button id="wipe-btn" class="btn danger" data-i18n="wipe">Wipe all server data</button>
     </div>
     <div class="stat" id="wipe-stat" style="margin-top:6px;text-align:center"></div>
   </div>
 
   <div class="card">
-    <h2 data-i18n="server">Сервер</h2>
+    <h2 data-i18n="server">Server</h2>
     <div class="muted" style="word-break:break-all">URL: <a id="srv-link" href="#" style="color:var(--accent)" target="_blank">…</a></div>
   </div>
 </div>
