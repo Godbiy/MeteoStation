@@ -74,6 +74,31 @@ cp server/config.example.php server/config.php   # fill EDIT_KEY + VAPID (gitign
 `?edit=1` does a `php -l` check + keeps a `.bak`. Verify after: `?config=1` (JSON), `?ui=1`
 (dashboard), `?push_selftest=1` (`"roundtrip":"OK"` = VAPID ok). On breakage: `?restore=1&key=…`.
 
+### Push watchdog (offline / live-pin)
+
+Server pushes fire on each station POST (`WebPush::maybePush`: battery/wind/back-online). The
+**time-based** alerts — "station went silent / offline" and the auto-refreshing live-pin "widget" —
+need a clock that runs *without* a POST (a dead station sends none). That clock is `WebPush::tick()`,
+driven by three layers (all idempotent, same code):
+
+1. **Lazy-tick** — `tickIfDue(60)` piggy-backs on the dashboard's own GET polling (wired in
+   `Server::handle`). Advances while any dashboard is open, zero cron.
+2. **External cron (recommended primary)** — `?tick=1` (`handleTick`). The stelnet host has no
+   crontab, **but the heartbeat doesn't need to live on the host**: point any external scheduler at
+   the bare URL. Free + reliable options:
+   - **cron-job.org** — add job, URL `…/TestKurwa?tick=1`, every 1 min. (UptimeRobot / EasyCron work too.)
+   - **GitHub Actions** — a `schedule:` workflow that `curl`s the URL (min 5-min granularity).
+   - Any always-on device (phone Tasker / PC Task Scheduler / Pi).
+3. **Self-running daemon (host-only fallback)** — `?daemon=1` (`handleDaemon`): a bounded ~50s worker
+   that ticks every 10s then relays a baton to a fresh worker via `fastcgi_finish_request` + self-curl,
+   before the FPM request timeout kills it. A `{ts,nonce}` lock at `FILE_DIR/MeteoDaemon.lock` makes it
+   a singleton and stops the relay from forking. `boot.js` re-kicks it every 4 min (only if the user
+   granted notifications); the Settings → Notify card has a manual **Enable** button + liveness status
+   (`?daemon_status`). Verified working on the live host, but inherently flakier than an external cron.
+
+Offline/live-pin are controlled by the existing per-device push cfg (`online` / `offlineMin` /
+`livePin`) in the Alerts tab — no separate config.
+
 ## Architecture
 
 ### State Machine (main.c)

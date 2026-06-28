@@ -84,9 +84,28 @@ don't need this shim — use `examples/standalone` and point the firmware's `SER
 If a fatal ever takes the bootstrap down, run `php FILE_DIR/src/Meteo/smoke.php` to find the bad
 class, or `cp …/TestKurwa.php.bak …/TestKurwa.php` over shell.
 
+## Notifications (server-side push)
+
+All alerts are delivered by **server-side Web Push** (VAPID) — they work with the dashboard
+**closed**; there are no foreground/tab-open notifications. Battery / wind / solar-charge /
+back-online fire on each station POST. "Station offline" + the live-pin "widget" are driven by a
+time-based watchdog (`WebPush::tick()`) that runs independently of POSTs via three layers:
+
+- **lazy-tick** — piggy-backs on the dashboard's own polling (no cron needed while a tab is open);
+- **`?tick=1`** — hit by an external scheduler every minute (recommended): **cron-job.org** /
+  UptimeRobot / a GitHub Actions `schedule:` workflow → `…/TestKurwa?tick=1`. The host needs no
+  crontab — the heartbeat lives anywhere that can `curl` a URL;
+- **`?daemon=1`** — a self-relaying host-side worker (singleton `{ts,nonce}` lock) as a no-cron
+  fallback; Settings → Notify has an **Enable** button + a `?daemon_status` liveness line.
+
+"Online vs late vs switching vs offline" is decided by a single backend state machine
+(`Store::linkState`), so the offline alert is cycle-relative and never false-fires during a
+config/cycle change. Per-device thresholds/types live in the dashboard (Settings → Сповіщення)
+and are stored per push subscription.
+
 ## Endpoints (quick reference)
 
-`POST` binary payload → logged. `GET ?ui=1` dashboard · `?config=1` runtime config ·
-`?since=/range=` history JSON · `?sw=1` service worker · `?manifest=1` PWA manifest ·
-`?push_*` web-push (VAPID). Admin actions (`?edit`, `?wipe_log`, `?gen_demo`, …) require
-`&key=EDIT_KEY`.
+`POST` binary payload → logged. `GET ?ui=1` dashboard · `?config=1` runtime config + connection
+state · `?since=/range=` history JSON · `?sw=1` service worker · `?manifest=1` PWA manifest ·
+`?push_*` web-push subscribe/test · `?tick=1` watchdog · `?daemon=1` / `?daemon_status` host
+daemon. Admin actions (`?edit`, `?wipe_log`, `?gen_demo`, …) require `&key=EDIT_KEY`.
