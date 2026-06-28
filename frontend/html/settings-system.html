@@ -21,6 +21,7 @@
       </div>
     </div>
     <div class="card-actions">
+      <button id="sync-btn" class="btn primary" data-i18n="sync_btn">⟳ Синхронізувати кеш</button>
       <button id="clear-cache-btn" class="btn danger" data-i18n="clear_cache">Очистити кеш</button>
     </div>
     <div class="stat" id="cache-stat" style="margin-top:6px;text-align:center"></div>
@@ -32,6 +33,17 @@
       <button id="force-update-btn" class="btn primary" data-i18n="force_update">↻ Оновити застосунок</button>
     </div>
     <div class="stat" id="force-stat" style="margin-top:6px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="export_title">⤓ Експорт даних</h2>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="export_hint">
+      Вивантажити всю локальну історію. Графіки можна зберегти в PNG кнопкою на кожній картці.
+    </div>
+    <div class="card-actions">
+      <button class="btn" data-export="csv" data-i18n="export_csv">⤓ CSV</button>
+      <button class="btn" data-export="json" data-i18n="export_json">⤓ JSON</button>
+    </div>
   </div>
 
   <div class="card">

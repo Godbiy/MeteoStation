@@ -7,6 +7,21 @@
     </div>
   </div>
 </div>
+<div id="sync-modal" class="cfm" hidden>
+  <div class="cfm-box sync-box">
+    <div class="sync-title" data-i18n="sync_title">Синхронізація кешу</div>
+    <ul class="sync-steps" id="sync-steps">
+      <li data-step="check"><span class="si">📡</span> <span data-i18n="sync_check">Перевірка сервера</span></li>
+      <li data-step="download"><span class="si">⬇️</span> <span data-i18n="sync_download">Завантаження</span></li>
+      <li data-step="write"><span class="si">💾</span> <span data-i18n="sync_write">Запис у кеш</span></li>
+      <li data-step="trim"><span class="si">🗑️</span> <span data-i18n="sync_trim">Очищення</span></li>
+      <li data-step="done"><span class="si">✅</span> <span data-i18n="sync_done">Готово</span></li>
+    </ul>
+    <div class="sync-bar"><div class="sync-bar-fill" id="sync-fill"></div></div>
+    <div class="sync-count" id="sync-count">—</div>
+    <div class="cfm-actions"><button class="btn" id="sync-close" data-i18n="sync_close" hidden>Закрити</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <button id="zoom-reset-all" class="zoom-reset-all">⊙ reset zoom</button>
 

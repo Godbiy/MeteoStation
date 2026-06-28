@@ -34,6 +34,35 @@ function decimate(pts, maxN){
   return out;
 }
 
+/* LTTB (Largest-Triangle-Three-Buckets): downsample to maxN points while PRESERVING
+ * peaks — picks, per bucket, the point forming the largest triangle with the previous
+ * kept point and the next bucket's average. Keyed on getY (default speed) so wind-gust
+ * spikes survive (uniform stride would drop them between samples). Keeps first + last. */
+function lttb(pts, maxN, getY){
+  const n = pts.length;
+  if (maxN < 3 || n <= maxN) return pts;
+  const y = getY || (p => p.speed || 0);
+  const out = [pts[0]];
+  const bucket = (n - 2) / (maxN - 2);
+  let a = 0;
+  for (let i = 0; i < maxN - 2; i++){
+    let avgX = 0, avgY = 0, cnt = 0;
+    const rs = Math.floor((i + 1) * bucket) + 1, re = Math.min(Math.floor((i + 2) * bucket) + 1, n);
+    for (let j = rs; j < re; j++){ avgX += pts[j].ts; avgY += y(pts[j]) || 0; cnt++; }
+    if (cnt){ avgX /= cnt; avgY /= cnt; }
+    const cs = Math.floor(i * bucket) + 1, ce = Math.floor((i + 1) * bucket) + 1;
+    const ax = pts[a].ts, ay = y(pts[a]) || 0;
+    let maxArea = -1, next = cs;
+    for (let j = cs; j < ce; j++){
+      const area = Math.abs((ax - avgX) * ((y(pts[j]) || 0) - ay) - (ax - pts[j].ts) * (avgY - ay));
+      if (area > maxArea){ maxArea = area; next = j; }
+    }
+    out.push(pts[next]); a = next;
+  }
+  out.push(pts[n - 1]);
+  return out;
+}
+
 /* Coalesce rapid redraws (pan/pinch fire many touchmoves per frame) into one
  * draw per animation frame — keeps gestures smooth on dense data. */
 let _histRAF = null;
@@ -56,11 +85,14 @@ function updateZoomChrome(){
   /* Show floating reset button + per-chart info if zoomed */
   document.querySelectorAll('.zoom-info').forEach(el => el.remove());
   const reset = $('zoom-reset-all');
-  if (!chartView){
+  const onHistory = document.querySelector('.tab.active')?.dataset.page === 'history';
+  if (!chartView || !onHistory){            /* reset button + zoom UI only on the History tab */
     reset.classList.remove('show');
+    document.body.classList.remove('zoom-active');
     return;
   }
   reset.classList.add('show');
+  document.body.classList.add('zoom-active');   /* page gets bottom padding so the fixed button doesn't hide the last card */
   const fmt = ts => {
     const d = new Date(ts);
     return pad2(d.getMonth()+1) + '/' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
@@ -165,7 +197,7 @@ function bindChartZoom(svg, chartId){
   /* Mouse pan */
   let dragging = false, lx = 0;
   wrap.addEventListener('mousedown', e => {
-    if (e.button !== 0 || e.target.closest('.fs-btn,.zoom-reset-all')) return;
+    if (e.button !== 0 || e.target.closest('.fs-btn,.dl-btn,.help-btn,.zoom-reset-all')) return;
     dragging = true; lx = e.clientX;
     wrap.classList.add('dragging'); e.preventDefault();
   });
@@ -186,7 +218,7 @@ function bindChartZoom(svg, chartId){
   let touches = {}, pinchStartDist = 0, pinchStartSpan = 0, pinchCenter = 0;
   let touchOrigin = null, panMode = null, vVel = 0;   /* panMode: 'h' pan, 'v' scroll, null unknown */
   wrap.addEventListener('touchstart', e => {
-    if (e.target.closest('.fs-btn,.zoom-reset-all')) return;
+    if (e.target.closest('.fs-btn,.dl-btn,.help-btn,.zoom-reset-all')) return;
     cancelFling();                              /* tap stops any inertial scroll */
     for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
     const ks = Object.keys(touches);
@@ -266,6 +298,8 @@ function bindLiveChartZoom(svg){
   wrap.className = 'chart-wrap';
   svg.parentNode.insertBefore(wrap, svg);
   wrap.appendChild(svg);
+  /* The Live timeline zooms on its OWN viewport (`liveView`), fully independent from
+   * History's `chartView` — neither affects the other. */
 
   function fullSpan(){
     if (!speedHistory.length) return null;
@@ -298,7 +332,7 @@ function bindLiveChartZoom(svg){
 
   let dragging = false, lx = 0;
   wrap.addEventListener('mousedown', e => {
-    if (e.button !== 0 || e.target.closest('.fs-btn,.zoom-reset-all')) return;
+    if (e.button !== 0 || e.target.closest('.fs-btn,.dl-btn,.help-btn,.zoom-reset-all')) return;
     dragging = true; lx = e.clientX; wrap.classList.add('dragging'); e.preventDefault();
   });
   window.addEventListener('mousemove', e => {
@@ -313,7 +347,7 @@ function bindLiveChartZoom(svg){
   let touches = {}, pinchStartDist = 0, pinchStartSpan = 0, pinchCenter = 0;
   let touchOrigin = null, panMode = null, vVel = 0;
   wrap.addEventListener('touchstart', e => {
-    if (e.target.closest('.fs-btn,.zoom-reset-all')) return;
+    if (e.target.closest('.fs-btn,.dl-btn,.help-btn,.zoom-reset-all')) return;
     cancelFling();
     for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
     const ks = Object.keys(touches);
@@ -532,6 +566,14 @@ function makeFullscreenable(el){
     if (history.length) drawHistoryCharts();
   });
   el.appendChild(btn);
+  /* PNG download — only for cards that hold a time-series chart */
+  const chartSvg = el.querySelector('svg[id^="chart-"]');
+  if (chartSvg && !el.querySelector('.dl-btn')){
+    const dl = document.createElement('button');
+    dl.className = 'fs-btn dl-btn'; dl.innerHTML = icSvg('ic-download'); dl.title = 'Export (PNG / SVG)';
+    dl.addEventListener('click', e => { e.stopPropagation(); exportChartMenu(chartSvg, chartSvg.id.replace('chart-','meteo-'), dl); });
+    el.appendChild(dl);
+  }
 }
 document.querySelectorAll('.card, .gauge-card').forEach(makeFullscreenable);
 /* ESC to exit fullscreen */

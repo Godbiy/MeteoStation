@@ -1,5 +1,17 @@
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;position:relative;box-shadow:var(--card-shadow)}
 
+/* ---- Cache-sync modal (staged progress) ---- */
+.sync-box{max-width:360px}
+.sync-title{font-size:15px;font-weight:700;color:var(--fg);margin-bottom:14px}
+.sync-steps{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:9px}
+.sync-steps li{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--mut);opacity:.45;transition:opacity .2s,color .2s}
+.sync-steps li.active{opacity:1;color:var(--fg);font-weight:600}
+.sync-steps li.done{opacity:1;color:var(--ok)}
+.sync-steps li .si{width:18px;text-align:center}
+.sync-bar{height:8px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.sync-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--ok));transition:width .25s linear}
+.sync-count{text-align:center;font-size:12px;color:var(--mut);margin-top:8px;font-feature-settings:'tnum'}
+
 /* ---- polish: motion, focus, scrollbar (smooth theme switch + tactile controls) ---- */
 body,.card,.nums,.gauge-card,.btn,.seg-btn,.cbtn,.lang-btn,input,select,.bit,.cell{transition:background-color var(--dur) var(--ease),border-color var(--dur) var(--ease),color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
 .btn:active:not(:disabled),.seg-btn:active,.cbtn:active,.lang-btn:active,.tab:active{transform:translateY(1px)}
@@ -9,11 +21,31 @@ body,.card,.nums,.gauge-card,.btn,.seg-btn,.cbtn,.lang-btn,input,select,.bit,.ce
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
 ::-webkit-scrollbar-thumb:hover{background:var(--mut)}
 ::-webkit-scrollbar-track{background:transparent}
-.card h2{font-size:11px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:600;display:flex;align-items:center;gap:8px;padding-right:34px}   /* room for the absolute .fs-btn */
+.card h2{font-size:11px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:600;display:flex;align-items:center;gap:8px;padding-right:72px}   /* room for the top-right tool buttons */
+.card:has(svg[id^="chart-"]) h2{padding-right:108px}   /* chart cards carry 3 buttons: help + export + fullscreen */
 .card h2 .meta{margin-left:auto;color:var(--mut);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fs-btn{position:absolute;top:8px;right:8px;background:rgba(13,17,23,.7);border:1px solid var(--line);color:var(--mut);padding:3px 7px;border-radius:4px;cursor:pointer;font:inherit;font-size:12px;line-height:1;z-index:2;backdrop-filter:blur(4px)}
-.fs-btn:hover{color:var(--fg);background:var(--panel2)}
-.fs-btn .ic{width:13px;height:13px;vertical-align:middle}
+/* top-right card tools (fullscreen / export / help) — one shared look, positioned by `right` */
+.fs-btn,.dl-btn,.help-btn{position:absolute;top:8px;background:rgba(13,17,23,.7);border:1px solid var(--line);color:var(--mut);padding:3px 7px;border-radius:4px;cursor:pointer;font:inherit;font-size:12px;line-height:1;font-weight:400;z-index:2;backdrop-filter:blur(4px)}
+.fs-btn{right:8px}
+.dl-btn{right:42px}
+.help-btn{right:42px;font-weight:700}   /* JS bumps to 76px on chart cards (sits left of export) */
+.fs-btn:hover,.dl-btn:hover,.help-btn:hover{color:var(--fg);background:var(--panel2)}
+
+/* export format picker */
+.export-menu{position:fixed;z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.5);overflow:hidden;display:flex;flex-direction:column;min-width:88px}
+.export-menu button{background:none;border:none;color:var(--fg);font:inherit;font-size:13px;text-align:left;padding:9px 16px;cursor:pointer}
+.export-menu button:hover{background:var(--panel2);color:var(--accent)}
+
+/* ===== Card help popup ===== */
+.help-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.help-ov[hidden]{display:none}
+.help-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;max-width:420px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.5);overflow:hidden}
+.help-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.help-hd b{font-size:13px;color:var(--fg)}
+.help-x{background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;line-height:1;padding:2px 4px}
+.help-x:hover{color:var(--fg)}
+.help-bd{padding:14px;font-size:13px;line-height:1.6;color:var(--fg);white-space:pre-wrap}
+.fs-btn .ic,.dl-btn .ic{width:13px;height:13px;vertical-align:middle}
 .gauge-card{position:relative}
 
 /* Fullscreen overlay */

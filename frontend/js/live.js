@@ -30,7 +30,6 @@ function renderUptime(){
 
 function renderLive(){
   renderUptime();
-  checkAlerts();
   updateTabDots();
   if (!lastSnapshot){
     $('t-dir').textContent = '—'; $('t-dir-deg').textContent = '— °';

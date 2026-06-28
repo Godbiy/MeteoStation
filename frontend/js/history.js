@@ -20,164 +20,25 @@ document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click
   }
 })();
 
-/* ===== Incremental IndexedDB cache (2G-friendly, year-scale) =====
- * Strategy:
- *   - All entries stored in IndexedDB keyed by timestamp (ms since epoch)
- *   - localStorage too small for years (5-10MB), IndexedDB has ~50MB+ quota
- *   - On each renderHistory: fetch only ?since=<newest_ts_in_db>, merge
- *   - User-selectable retention: 7d / 30d / 1y / unlimited
- *   - Server-side gzip + ?fmt=c compact keys + auto-bin for old data */
-const DB_NAME = 'meteo_v1';
-const DB_STORE = 'history';
-let _db = null;
-function dbOpen(){
-  if (_db) return Promise.resolve(_db);
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE, { keyPath: 'ts' });
-    };
-    req.onsuccess = e => { _db = e.target.result; res(_db); };
-    req.onerror = e => rej(e.target.error);
-  });
-}
+/* ===== Cache layer ===== Engine in store.js (`Cache`): OPFS append-only file when
+ * available, IndexedDB fallback otherwise. These thin shims keep every call site
+ * (renderHistory, live-ctl, zoom) unchanged. */
 function entryTs(e){
-  /* Support both full ("timestamp": "YYYY-MM-DD HH:MM:SS") and compact ("t"). */
+  /* full ("timestamp":"YYYY-MM-DD HH:MM:SS") or compact ("t"), or a precomputed .ts */
+  if (typeof e.ts === 'number' && e.ts > 0) return e.ts;
   return parseServerTs(e.timestamp ?? e.t);
 }
-async function dbPut(entries){
-  if (!entries.length) return;
-  const db = await dbOpen();
-  await new Promise((res, rej) => {
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const st = tx.objectStore(DB_STORE);
-    for (const e of entries){
-      const ts = entryTs(e);
-      if (typeof ts === 'number' && ts > 0) st.put({ ...e, ts });
-    }
-    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
-  });
-}
+const dbPut       = entries => Cache.append(entries);
+const dbRange     = (fromMs, toMs) => Cache.range(fromMs, toMs);
+const dbNewestTs  = () => Cache.newestTs();
+const dbOldestTs  = () => Cache.oldestTs();
+const dbCount     = () => Cache.count();
+const dbTrim      = days => Cache.trim(days);
+const dbClear     = () => Cache.clear();
+const dbEstimate  = () => Cache.estimate();
+const dbPurgeBadKeys = async () => 0;        /* legacy IDB cleanup - store.js keys are clean */
+const dbPurgeAggregateOnly = async () => 0;  /* keep_raw refetch is handled by renderHistory */
 
-/* One-time DB migration: detect entries with non-numeric ts keys (from old buggy
- * version that stored string timestamps) and purge them so we re-fetch clean. */
-async function dbPurgeBadKeys(){
-  const db = await dbOpen();
-  return new Promise(res => {
-    let n = 0;
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const req = tx.objectStore(DB_STORE).openCursor();
-    req.onsuccess = e => {
-      const c = e.target.result;
-      if (!c){ res(n); return; }
-      if (typeof c.key !== 'number' || c.key < 1e12){ c.delete(); n++; }
-      c.continue();
-    };
-    tx.onerror = () => res(n);
-  });
-}
-/* Purge cached entries from the last 7 days that lack raw sp[]/va[] arrays.
- * Those were stored before the keep_raw=1 feature — without arrays we can only
- * draw one point per 15-min POST (triangle effect). Purging forces a re-fetch
- * with arrays so chart shows per-2s sub-points. Older entries (>7d) stay since
- * they're long-range binned anyway. */
-async function dbPurgeAggregateOnly(){
-  const db = await dbOpen();
-  const cutoff = Date.now() - 7 * 86400000;
-  return new Promise(res => {
-    let n = 0;
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const req = tx.objectStore(DB_STORE).openCursor(IDBKeyRange.lowerBound(cutoff));
-    req.onsuccess = e => {
-      const c = e.target.result;
-      if (!c){ res(n); return; }
-      const v = c.value;
-      const hasArrays = (Array.isArray(v.sp) && v.sp.length) || (Array.isArray(v.speed) && v.speed.length);
-      /* Skip binned entries (they have a 'bk' or 'cn' marker — we don't want to purge those). */
-      const isBinned = v.bk != null || v.cn != null || v.bucket != null || v.count != null;
-      if (!hasArrays && !isBinned){ c.delete(); n++; }
-      c.continue();
-    };
-    tx.onerror = () => res(n);
-  });
-}
-
-async function dbRange(fromMs, toMs){
-  const db = await dbOpen();
-  return new Promise((res, rej) => {
-    const out = [];
-    const req = db.transaction(DB_STORE).objectStore(DB_STORE).openCursor(IDBKeyRange.bound(fromMs, toMs));
-    req.onsuccess = e => { const c = e.target.result; if (c){ out.push(c.value); c.continue(); } else res(out); };
-    req.onerror = () => rej(req.error);
-  });
-}
-async function dbNewestTs(){
-  const db = await dbOpen();
-  return new Promise(res => {
-    const req = db.transaction(DB_STORE).objectStore(DB_STORE).openCursor(null, 'prev');
-    req.onsuccess = e => res(e.target.result?.value?.ts || 0);
-    req.onerror = () => res(0);
-  });
-}
-async function dbOldestTs(){
-  const db = await dbOpen();
-  return new Promise(res => {
-    const req = db.transaction(DB_STORE).objectStore(DB_STORE).openCursor(null, 'next');
-    req.onsuccess = e => res(e.target.result?.value?.ts || 0);
-    req.onerror = () => res(0);
-  });
-}
-async function dbCount(){
-  const db = await dbOpen();
-  return new Promise(res => {
-    const req = db.transaction(DB_STORE).objectStore(DB_STORE).count();
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => res(0);
-  });
-}
-async function dbTrim(retentionDays){
-  if (!retentionDays || retentionDays <= 0) return 0;
-  const cutoff = Date.now() - retentionDays * 86400000;
-  const db = await dbOpen();
-  return new Promise(res => {
-    let n = 0;
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const req = tx.objectStore(DB_STORE).openCursor(IDBKeyRange.upperBound(cutoff));
-    req.onsuccess = e => { const c = e.target.result; if (c){ c.delete(); n++; c.continue(); } };
-    tx.oncomplete = () => res(n);
-  });
-}
-async function dbClear(){
-  const db = await dbOpen();
-  return new Promise(res => {
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    tx.objectStore(DB_STORE).clear();
-    tx.oncomplete = res;
-  });
-}
-async function dbEstimate(){
-  /* StorageManager quota estimate (Chrome/Edge). Fallback: rough count×~100B */
-  if (navigator.storage?.estimate){
-    try { const e = await navigator.storage.estimate(); return { used: e.usage || 0, quota: e.quota || 0 }; }
-    catch {}
-  }
-  const n = await dbCount();
-  return { used: n * 100, quota: 0 };
-}
-
-function autoBinSec(range){
-  /* For longer ranges, ask the server to aggregate so we don't ship millions
-   * of points over 2G. 1y @ 1h bin = 8760 pts ≈ 1MB JSON ≈ 200KB gzipped. */
-  switch (range){
-    case '24h': return 60;
-    case '7d':  return 300;
-    case '30d': return 1800;
-    case '90d': return 3600;
-    case '365d':return 3600;
-    default:    return 0;
-  }
-}
 function rangeSec(r){
   const m = /^(\d+)\s*([mhd])$/.exec(r);
   if (!m) return 3600;
@@ -199,7 +60,7 @@ async function renderHistory(){
     const cutoffMs = nowMs - rangeSec(currentRange) * 1000;
     const newestMs = await dbNewestTs();
     const newestEpoch = Math.floor(newestMs / 1000);
-    const bin = autoBinSec(currentRange);
+    const bin = 0;   /* Ф2: the front computes LOD from local raw — no server binning */
     /* For short ranges keep raw vane[]/speed[] arrays so we can explode each
      * POST into per-2s sub-points (real fine-grained resolution, not just
      * aggregates). Long ranges use server-side binning which strips arrays anyway. */
@@ -263,45 +124,104 @@ async function renderHistory(){
   }
 }
 
-/* Explode history into per-2s sub-points, cached. Rebuilt only when `history`
- * actually changes (length or end-points) — so pan/pinch reuse it instead of
- * re-exploding thousands of entries every frame. Big win on dense data. */
+/* ---- Ф2: span-aware LOD point building ----
+ * Short spans explode each POST into per-2s sub-points (full detail). Longer spans
+ * bin POSTs into ~PT_TARGET buckets so we never build/draw millions of points. The
+ * bucket is the IDEAL size for the span (span/PT_TARGET) — finer than the named file
+ * tiers (those are for persisted multi-year data, future). */
+const PT_TARGET = 1500;
+const EXPLODE_SPAN_MS = 2 * 3600 * 1000;   /* <=2h -> per-2s sub-points */
+function _histLB(ts){ let a=0,b=history.length; while(a<b){const m=(a+b)>>1; if(entryTs(history[m])<ts)a=m+1; else b=m;} return a; }
+const TIER_SPAN_MS = 8 * 86400 * 1000;   /* > 8 days → read pre-aggregated tier files (≤8d
+                                          * bins the bounded raw WINDOW on the fly = finer) */
+function buildPtsLOD(fromMs, toMs){
+  const SF = SPEED_FACTOR * spdMul(), SAMPLE_MS = 2000;
+  const span = Math.max(1, toMs - fromMs);
+  const margin = span * 0.02;
+  /* Long spans: read a few hundred ready bucket records from a tier file instead of
+   * scanning tens of thousands of raw points every frame (and future-proof for years). */
+  if (span > TIER_SPAN_MS && typeof Cache !== 'undefined' && Cache.tier){
+    const recs = Cache.tier(Cache.pickTierName(span), fromMs - margin, toMs + margin);
+    return recs.map(r => ({ ts: r.t, speed: (r.sm / 2) * SF, speedMax: (r.sx / 2) * SF, batt: r.b, solar: r.sol, csq: r.c, dir: r.vm ?? null }));
+  }
+  /* include ONE entry just before/after the window so a zoom into an outage still draws
+   * a connecting line/bridge across the gap (continuity) instead of a blank "offline". */
+  const win = history.slice(Math.max(0, _histLB(fromMs) - 1), Math.min(history.length, _histLB(toMs) + 1));
+  const pts = [];
+  if (span <= EXPLODE_SPAN_MS){
+    for (const e of win){
+      const endTs = entryTs(e); if (!endTs) continue;
+      const speedArr = e.speed || e.sp, vaneArr = e.vane || e.va;
+      const batt = e.batt_mv ?? e.b ?? 0, solar = e.solar_mv ?? e.sol ?? null, csq = e.csq ?? e.c ?? 0;
+      if (Array.isArray(speedArr) && speedArr.length){
+        const N = speedArr.length;
+        for (let i = 0; i < N; i++){
+          const subTs = endTs - (N - 1 - i) * SAMPLE_MS;
+          const kmh = ((speedArr[i] || 0) / 2) * SF;
+          let dirIdx = null; const v = vaneArr ? vaneArr[i] : null;
+          if (v != null && v !== 0xFF){ for (let k = 0; k < 8; k++){ if (!(v & (1 << k))){ dirIdx = k; break; } } }
+          pts.push({ ts: subTs, speed: kmh, speedMax: kmh, batt, solar, csq, dir: dirIdx, sub: true });
+        }
+      } else {
+        const sm = e.speed_mean ?? e.sm ?? e.s ?? 0, sx = e.speed_max ?? e.sx ?? sm;
+        pts.push({ ts: endTs, speed: (sm/2)*SF, speedMax: (sx/2)*SF, batt, solar, csq, dir: e.vane_mode ?? e.vm ?? null });
+      }
+    }
+  } else {
+    const bucket = span / PT_TARGET;
+    /* Explode each POST's per-2s samples into the buckets they actually span, THEN aggregate
+     * per bucket — so a 15-min/450-sample POST becomes ~15 jagged points, not one flat mean.
+     * Capped so very wide spans fall back to per-POST aggregation (speed). */
+    let totalSamp = 0; for (const e of win){ const a = e.speed || e.sp; totalSamp += (Array.isArray(a) && a.length) ? a.length : 1; }
+    const fine = totalSamp <= 60000;
+    const map = new Map();
+    const add = (t, val, vmax, batt, solar, csq, dir) => {
+      const key = Math.floor(t / bucket);
+      let a = map.get(key);
+      if (!a){ a = { tsum:0, n:0, ssum:0, smax:0, bsum:0, bn:0, solsum:0, soln:0, csq:0, dirs:new Array(8).fill(0) }; map.set(key, a); }
+      a.tsum += t; a.n++; a.ssum += val; if (vmax > a.smax) a.smax = vmax;
+      if (typeof batt === 'number' && batt > 0){ a.bsum += batt; a.bn++; }
+      if (typeof solar === 'number'){ a.solsum += solar; a.soln++; }
+      if (typeof csq === 'number'){ if (csq >= 1 && csq <= 31) a.csq = csq; else if (csq === 99 && !a.csq) a.csq = 99; }
+      if (dir != null && dir >= 0 && dir < 8) a.dirs[dir]++;
+    };
+    for (const e of win){
+      const endTs = entryTs(e); if (!endTs) continue;
+      const arr = e.speed || e.sp, vaneArr = e.vane || e.va;
+      const batt = e.batt_mv ?? e.b, solar = e.solar_mv ?? e.sol, csq = e.csq ?? e.c;
+      if (fine && Array.isArray(arr) && arr.length){
+        const N = arr.length;
+        for (let i = 0; i < N; i++){
+          const subTs = endTs - (N - 1 - i) * SAMPLE_MS, pulse = arr[i] || 0;
+          let dir = null; const v = vaneArr ? vaneArr[i] : null;
+          if (v != null && v !== 0xFF){ for (let k = 0; k < 8; k++) if (!(v & (1 << k))){ dir = k; break; } }
+          add(subTs, pulse, pulse, batt, solar, csq, dir);
+        }
+      } else {
+        let sm, sx;
+        if (Array.isArray(arr) && arr.length){ let s=0,mx=0; for (const v of arr){ s+=v; if(v>mx)mx=v; } sm=s/arr.length; sx=mx; }
+        else { sm = e.speed_mean ?? e.sm ?? e.s ?? 0; sx = e.speed_max ?? e.sx ?? sm; }
+        add(endTs, sm, sx, batt, solar, csq, e.vane_mode ?? e.vm);
+      }
+    }
+    for (const a of map.values()){
+      let dir = null, mx = 0; for (let k = 0; k < 8; k++) if (a.dirs[k] > mx){ mx = a.dirs[k]; dir = k; }
+      pts.push({ ts: a.tsum / a.n, speed: (a.ssum / a.n / 2) * SF, speedMax: (a.smax / 2) * SF,
+                 batt: a.bn ? a.bsum / a.bn : 0, solar: a.soln ? a.solsum / a.soln : null, csq: a.csq, dir });
+    }
+  }
+  pts.sort((x, y) => x.ts - y.ts);
+  return pts;
+}
+/* Range-level set (for whole-history aggregates: daily/heatmap/rose/stats). Cached. */
 let _ptsCache = null, _ptsKey = '';
 function buildHistoryPts(){
   const n = history.length;
-  const key = n ? n + '|' + entryTs(history[0]) + '|' + entryTs(history[n-1]) : '0';
+  const key = n ? n + '|' + entryTs(history[0]) + '|' + entryTs(history[n-1]) + '|' + currentRange : '0';
   if (_ptsCache && _ptsKey === key) return _ptsCache;
-  const SF = SPEED_FACTOR * spdMul(), SAMPLE_MS = 2000;
-  const pts = [];
-  for (const e of history){
-    const endTs = entryTs(e);
-    if (!endTs) continue;
-    const speedArr = e.speed || e.sp;
-    const vaneArr  = e.vane  || e.va;
-    const batt  = e.batt_mv ?? e.b ?? 0;
-    const solar = e.solar_mv ?? e.sol ?? null;
-    const csq   = e.csq ?? e.c ?? 0;
-    if (Array.isArray(speedArr) && speedArr.length){
-      const N = speedArr.length;
-      for (let i = 0; i < N; i++){
-        const subTs = endTs - (N - 1 - i) * SAMPLE_MS;
-        const kmh = ((speedArr[i] || 0) / 2) * SF;
-        let dirIdx = null;
-        const v = vaneArr ? vaneArr[i] : null;
-        if (v != null && v !== 0xFF){
-          for (let k = 0; k < 8; k++){ if (!(v & (1 << k))){ dirIdx = k; break; } }
-        }
-        pts.push({ ts: subTs, speed: kmh, speedMax: kmh, batt, solar, csq, dir: dirIdx, sub: true });
-      }
-    } else {
-      const sm = e.speed_mean ?? e.sm ?? e.s ?? 0;
-      const sx = e.speed_max  ?? e.sx ?? sm;
-      pts.push({ ts: endTs, speed: (sm/2)*SF, speedMax: (sx/2)*SF, batt, solar, csq, dir: e.vane_mode ?? e.vm ?? null });
-    }
-  }
-  pts.sort((a,b) => a.ts - b.ts);
-  _ptsCache = pts; _ptsKey = key;
-  return pts;
+  const to = Date.now(), from = to - rangeSec(currentRange) * 1000;
+  _ptsCache = buildPtsLOD(from, to); _ptsKey = key;
+  return _ptsCache;
 }
 
 let _forceCharts = false;   /* when true, drawHistoryCharts ignores the on-screen gate (pre-render) */
@@ -319,11 +239,12 @@ function drawHistoryCharts(windowOnly = false){
    * Otherwise fall back to the single aggregate point. */
   const SF = SPEED_FACTOR * spdMul();       /* km/h per pulse/sec — matches renderLive */
   const pts = buildHistoryPts();
-  const vis = getVisible(pts);   /* full visible set — used by the wind rose / stats */
-  /* Bounded working set for the LINE charts + smoothing. Decimating BEFORE the
-   * moving-average keeps it O(cap·win) instead of O(allPoints·win) — the main
-   * cost when zoomed out over thousands of dense live points. */
-  const visLine = decimate(vis, RENDER_CAP * 2);
+  /* Ф2: when zoomed, rebuild the window at a FINER LOD straight from raw (swap to a
+   * finer tier) instead of clipping the coarse range set — gives real detail on zoom. */
+  const vis = chartView ? buildPtsLOD(chartView.start, chartView.end) : pts;
+  /* Bounded working set for the LINE charts + smoothing. LTTB (not uniform stride)
+   * keeps wind-gust peaks; keyed on speedMax so spikes survive the decimation. */
+  const visLine = lttb(vis, RENDER_CAP * 2, p => p.speedMax ?? p.speed);
   /* GLOBAL smoothing — applied once, reused by speed / wind timeline / battery /
    * solar. Aggregate charts (rose, daily, heatmap, stats) keep using raw `vis`. */
   const sel = $('smooth-sel');
@@ -399,11 +320,17 @@ function drawHistoryCharts(windowOnly = false){
     seen[id] = !!r && r.bottom > -60 && r.top < ih + 60;
   }
   const see = id => _forceCharts || seen[id];   /* _forceCharts = pre-render an off-screen page (swipe neighbour) */
-  /* RAW = no gust band: show the actual samples/spikes (you literally spun it).
-   * The gust band (window max) only makes sense once smoothing is on. */
+  /* RAW + EXPLODED (short span, per-2s samples present) = no gust band: the samples ARE
+   * the spikes. But on a BINNED span (>2h) each point is a POST/bucket mean — the per-2s
+   * gusts are gone, so we MUST draw the max band, else the chart looks flat (the "чому так
+   * мало стрибків на 24h" bug). LTTB/explode set speedMax==speed so the band self-hides
+   * when truly raw. */
+  const _span = chartView ? (chartView.end - chartView.start) : rangeSec(currentRange) * 1000;
+  const exploded = _span <= EXPLODE_SPAN_MS;
   const isRaw = !meanPerPost && !(win > 1);
-  if (see('chart-speed')) drawLineChart('chart-speed', smoothedD, 'speed', isRaw ? null : 'speedMax', '#58a6ff', false, xWin);
-  if (see('chart-wt'))    drawWindTimeline(smoothedD, 'chart-wt', xWin, isRaw);
+  const noGust = isRaw && exploded;
+  if (see('chart-speed')) drawLineChart('chart-speed', smoothedD, 'speed', noGust ? null : 'speedMax', '#58a6ff', false, xWin);
+  if (see('chart-wt'))    drawWindTimeline(smoothedD, 'chart-wt', xWin, noGust);
   if (see('chart-dir'))   drawDirTimeline(visD, 'chart-dir', xWin);
   /* Battery and GSM signal are now two separate single-line charts (split out of
    * the old dual-axis chart so each is a light render). */
@@ -470,23 +397,39 @@ function noData(svg, W, H, msg){
   svg.innerHTML = `<text x="${(W/2).toFixed(0)}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="12" opacity=".75">${msg || t('no_data')}</text>`;
   svg.__ctx = { pts: [] }; if (svg.__hideTip) svg.__hideTip();
 }
+/* Ф5: graceful empty line-chart — an axis with a baseline + "офлайн" label instead of a
+ * bare "no data". Speed gets a real 0-line (0 wind is honest); voltage charts get only
+ * the axis + label (a 0V line would be a lie). */
+function emptyChart(svg, W, H, key){
+  const LEFT = 32, RIGHT = 8, BOT = 26, base = H - BOT;
+  let s = `<line x1="${LEFT}" y1="${base}" x2="${W-RIGHT}" y2="${base}" stroke="var(--mut)" stroke-width="1" opacity=".5"/>`
+        + `<line x1="${LEFT}" y1="${10}" x2="${LEFT}" y2="${base}" stroke="var(--mut)" stroke-width="1" opacity=".5"/>`;
+  if (key === 'speed'){
+    s += `<line x1="${LEFT}" y1="${base}" x2="${W-RIGHT}" y2="${base}" stroke="#58a6ff" stroke-width="2" opacity=".5"/>`
+       + `<text x="${LEFT-4}" y="${base+3}" text-anchor="end" fill="var(--mut)" font-size="9">0</text>`;
+  }
+  s += `<text x="${(W/2).toFixed(0)}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="11" opacity=".7">${t('offline_nodata')}</text>`;
+  svg.innerHTML = s; svg.__ctx = { pts: [] }; if (svg.__hideTip) svg.__hideTip();
+}
 function drawLineChart(svgId, pts, key, keyMax, color, dual=false, win=null){
   const svg = $(svgId);
   const H = chartH(svg, +svg.getAttribute('viewBox').split(' ')[3] || 180);
   const W = chartW(svg, 600);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const TOP = 10, BOT = 26, LEFT = 32, RIGHT = 8;   /* margins (BOT taller for x labels) */
-  if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else noData(svg, W, H); svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return; }
+  if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else emptyChart(svg, W, H, key); svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return; }
   /* when data exists, fit the x-axis to the DATA extent (no empty edge padding);
    * internal gaps still show as gaps between points. `win` is only for empty views. */
-  const xMin = pts[0].ts, xMax = pts[pts.length-1].ts;
+  const xMin = win ? win.start : pts[0].ts, xMax = win ? win.end : pts[pts.length-1].ts;
   const ys = pts.map(p => p[key]);
   const rawMax = Math.max(1, ...ys, ...(keyMax ? pts.map(p => p[keyMax]) : []));
   const yMax = dual ? rawMax : niceCeil(rawMax);
   const yMin = dual ? Math.min(...ys, 3000) : 0;
   const uid = 'lg-' + svgId;
   const hasMax = keyMax && pts.some(p => (p[keyMax] ?? p[key]) > p[key] + 0.05);
-  const sx = ts => ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT;
+  /* clamp X to the plot area so bracket points (just outside a zoom window) don't spill
+   * the line/area past the axis ticks into the margins. */
+  const sx = ts => Math.max(LEFT, Math.min(W - RIGHT, ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT));
   const sy = v  => H - BOT - ((Math.min(v, yMax) - yMin) / (yMax - yMin || 1)) * (H - TOP - BOT);
 
   /* break line + area across big time gaps (outages / sparse live tail) so we don't
@@ -494,7 +437,12 @@ function drawLineChart(svgId, pts, key, keyMax, color, dual=false, win=null){
   const dts = []; for (let i = 1; i < pts.length; i++) dts.push(pts[i].ts - pts[i-1].ts);
   dts.sort((a, b) => a - b);
   const medDt = dts[dts.length >> 1] || 0;
-  const gapMax = Math.max(5 * 60 * 1000, medDt * 4);
+  /* Threshold must track the CONFIGURED cycle, not just the median spacing: after the
+   * cycle was changed mid-day (e.g. 80s → 15min) the median is dominated by the dense
+   * early data, so the sparse recent data (one normal cycle apart) was wrongly drawn as
+   * all-gaps (dashed). Use ≥2.5× the real cycle so a normal interval is never a "gap". */
+  const cfgCyc = (lastConfig?.cycle_seconds || lastConfig?.intended_cycle_seconds || 0) * 1000;
+  const gapMax = Math.max(5 * 60 * 1000, medDt * 4, cfgCyc * 2.5);
   let area = '', line = '', maxLine = '', bridge = '', segOpen = false, lastX = null, prevX = null, prevY = null;
   pts.forEach((p, i) => {
     const x = sx(p.ts).toFixed(1), y = sy(p[key]).toFixed(1);
@@ -685,8 +633,8 @@ function drawSignal(svgId, csqPts, win = null, lostPts = []){
   for (const p of csqPts)  merged.push({ ts: p.ts, v: p.csq, lost: false });
   for (const p of lostPts) merged.push({ ts: p.ts, v: 0,     lost: true  });
   merged.sort((a, b) => a.ts - b.ts);
-  const xMin = merged[0].ts, xMax = merged[merged.length-1].ts;
-  const sx = ts => ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT;
+  const xMin = win ? win.start : merged[0].ts, xMax = win ? win.end : merged[merged.length-1].ts;
+  const sx = ts => Math.max(LEFT, Math.min(W - RIGHT, ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT));
   const sy = v  => H - BOT - (v / CSQ_MAX) * (H - TOP - BOT);
   const gg = []; for (let i = 1; i < merged.length; i++) gg.push(merged[i].ts - merged[i-1].ts);
   gg.sort((a, b) => a - b);
@@ -775,8 +723,10 @@ function drawEmptyWindow(svg, W, H, win){
   let links = '';
   if (canL) links += `<text class="jump-link" data-side="L" x="${LEFT+6}" y="${(cy+18).toFixed(0)}" fill="var(--accent)" font-size="12" style="cursor:pointer">← ${t('data_left')}</text>`;
   if (canR) links += `<text class="jump-link" data-side="R" x="${W-RIGHT-6}" y="${(cy+18).toFixed(0)}" text-anchor="end" fill="var(--accent)" font-size="12" style="cursor:pointer">${t('data_right')} →</text>`;
+  const base = H - BOT;
   svg.innerHTML = `${xticks}${axis}
-    <text x="${W/2}" y="${(cy-2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="13">📭 ${t('no_data_window')}</text>
+    <line x1="${LEFT}" y1="${base}" x2="${W-RIGHT}" y2="${base}" stroke="var(--mut)" stroke-dasharray="3 4" opacity=".4"/>
+    <text x="${W/2}" y="${(cy-2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="12" opacity=".7">${t('offline_nodata')}</text>
     ${links}`;
   svg.querySelectorAll('.jump-link').forEach(el => {
     const fire = ev => { ev.stopPropagation(); ev.preventDefault(); win.apply(el.getAttribute('data-side') === 'L' ? win.leftTs : win.rightTs); };
@@ -796,8 +746,8 @@ function drawDirTimeline(pts, svgId = 'chart-dir', win = null){
   const TOP = 12, BOT = 26, LEFT = 36, RIGHT = 8;
   if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else noData(svg, W, H); svg.__ctx = { pts: [] }; return; }
   const dirPts = pts.filter(p => p.dir != null && p.dir >= 0 && p.dir < 8);
-  const xMin = pts[0].ts, xMax = pts[pts.length-1].ts;
-  const sx = ts => ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT;
+  const xMin = win ? win.start : pts[0].ts, xMax = win ? win.end : pts[pts.length-1].ts;
+  const sx = ts => Math.max(LEFT, Math.min(W - RIGHT, ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT));
   const yLvl = d => TOP + (d / 7) * (H - TOP - BOT);   /* N(0) top … NW(7) bottom */
   /* compass-level gridlines + labels */
   let grid = '';
@@ -816,7 +766,7 @@ function drawDirTimeline(pts, svgId = 'chart-dir', win = null){
     xticks += `<text x="${x}" y="${(H-BOT+14).toFixed(1)}" text-anchor="middle" fill="var(--mut)" font-size="9">${fmt(new Date(tk))}</text>`;
   }
   if (!dirPts.length){
-    svg.innerHTML = grid + xticks + `<text x="${(W/2).toFixed(1)}" y="${(H/2).toFixed(1)}" text-anchor="middle" fill="var(--mut)" font-size="11">${t('no_dir_data')}</text>`;
+    svg.innerHTML = grid + xticks + `<text x="${(W/2).toFixed(1)}" y="${(H/2).toFixed(1)}" text-anchor="middle" fill="var(--mut)" font-size="11" opacity=".7">${t('no_dir_data')}</text>`;
     svg.__ctx = { pts: [] }; return;
   }
   /* bucket into ~90 time slots, take the dominant (mode) direction per slot — turns
@@ -859,9 +809,50 @@ function drawDirTimeline(pts, svgId = 'chart-dir', win = null){
   svg.__ctx = { pts: [] };
 }
 
-/* Data availability / uptime: green bands where the module was posting, gaps
- * where it went silent (downtime). Based on POST timestamps in the visible
- * window; a gap wider than 2.5× the median cycle (min 5 min) counts as offline. */
+/* Ф3: availability/uptime computed ON THE FRONT from local raw (history). Per-moment
+ * cycle C = rolling median of nearby REGULAR gaps; each gap split 🟢 green ≤~1.5C ·
+ * 🟡 yellow ≤ C+GRACE (auto-reboot window, GRACE = 2×C) · 🔴 red beyond. Returns merged
+ * segments already clipped to [from,to] + the green/yellow/red totals. Zoom = recompute. */
+function computeUptime(fromMs, toMs, data){
+  const posts = [], reg = [];
+  for (const e of (data || history)){
+    const ts = entryTs(e); if (!ts) continue;
+    posts.push(ts);
+    if (!(e.live || e.l)) reg.push(ts);
+  }
+  posts.sort((a, b) => a - b); reg.sort((a, b) => a - b);
+  if (posts.length < 2) return { segs: [], green: 0, yellow: 0, red: 0 };
+  const FLOOR = 20000;
+  const cfgCyc = ((lastConfig?.cycle_seconds || lastConfig?.intended_cycle_seconds || 60) * 1000) || 60000;
+  const gapAt = [], gapMed = [];
+  for (let i = 1; i < reg.length; i++) gapAt.push(reg[i-1]);
+  for (let i = 0; i < gapAt.length; i++){
+    const a = Math.max(0, i - 4), b = Math.min(gapAt.length, i + 5);
+    const w = []; for (let j = a; j < b; j++) w.push(reg[j+1] - reg[j]); w.sort((x, y) => x - y);
+    gapMed.push(Math.max(FLOOR, w[w.length >> 1] || cfgCyc));
+  }
+  const cycAt = tq => {
+    if (!gapAt.length) return cfgCyc;
+    let a = 0, b = gapAt.length - 1; while (a < b){ const m = (a + b) >> 1; if (gapAt[m] < tq) a = m + 1; else b = m; }
+    let idx = a; if (a > 0 && Math.abs(gapAt[a-1] - tq) <= Math.abs(gapAt[a] - tq)) idx = a - 1;
+    return gapMed[Math.min(idx, gapMed.length - 1)] || cfgCyc;
+  };
+  let green = 0, yellow = 0, red = 0; const SEG = [];
+  const emit = (s2, e2, st) => { s2 = Math.max(s2, fromMs); e2 = Math.min(e2, toMs); if (e2 <= s2) return; SEG.push([s2, e2, st]); if (st === 0) green += e2 - s2; else if (st === 1) yellow += e2 - s2; else red += e2 - s2; };
+  const classify = (a, bb) => {
+    if (bb <= a) return;
+    const G = bb - a, C = cycAt((a + bb) / 2);
+    const greenMax = Math.max(C * 1.5, C + 30000), yEnd = greenMax + 2 * C;
+    const g = a + Math.min(G, greenMax); emit(a, g, 0);
+    if (G > greenMax){ const y = a + Math.min(G, yEnd); emit(g, y, 1); if (G > yEnd) emit(y, bb, 2); }
+  };
+  for (let i = 1; i < posts.length; i++){ if (posts[i] < fromMs) continue; classify(posts[i-1], posts[i]); }
+  classify(posts[posts.length - 1], toMs);
+  SEG.sort((p, q) => p[0] - q[0]);
+  const M = [];
+  for (const sg of SEG){ const last = M[M.length - 1]; if (last && last[2] === sg[2] && sg[0] - last[1] < 1000) last[1] = sg[1]; else M.push(sg.slice()); }
+  return { segs: M, green, yellow, red };
+}
 function drawUptime(svgId = 'chart-uptime', win = null){
   const svg = $(svgId); if (!svg) return;
   const H = chartH(svg, +svg.getAttribute('viewBox').split(' ')[3] || 70);
@@ -869,58 +860,31 @@ function drawUptime(svgId = 'chart-uptime', win = null){
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const TOP = 8, BOT = 20, LEFT = 6, RIGHT = 6;
   const meta = $('uptime-meta');
-  const lo = chartView ? chartView.start : -Infinity, hi = chartView ? chartView.end : Infinity;
-  /* EVERY data point counts (live + normal) — any point means the module was on
-   * and reporting. A gap with no points = it was off. Like the speed chart, by
-   * point coverage. ts = windowed points (for the bands); allReg = ALL regular
-   * posts (for a zoom-STABLE cadence estimate — windowed medians jumped around). */
-  const ts = [], allReg = [];
-  for (const e of history){
-    const tt = entryTs(e); if (!tt) continue;
-    if (!e.live) allReg.push(tt);
-    if (tt >= lo && tt <= hi) ts.push(tt);
-  }
-  ts.sort((a, b) => a - b);
-  if (ts.length < 2){ svg.innerHTML = `<text x="${(W/2).toFixed(0)}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="11">${t('no_data')}</text>`; if (meta) meta.textContent = ''; svg.__ctx = { pts: [] }; return; }
-  /* x-axis spans the SELECTED window (now − range … now), NOT just the data extent —
-   * so time before the station booted (or after it went silent) shows as an empty grey
-   * gap instead of full green. */
   const nowMs = Date.now();
   let xMin, xMax;
   if (chartView){ xMin = chartView.start; xMax = chartView.end; }
   else { xMax = nowMs; xMin = nowMs - rangeSec(currentRange) * 1000; }
   const span = xMax - xMin || 1;
-  /* Offline threshold from the WHOLE history's regular cadence (stable across zoom).
-   * 95th-percentile gap × 3, floor 45 min. */
-  allReg.sort((a, b) => a - b);
-  let cyc = 0;
-  if (allReg.length >= 2){ const g = allReg.slice(1).map((v, i) => v - allReg[i]).sort((a, b) => a - b); cyc = g[Math.floor(g.length * 0.95)] || g[g.length-1]; }
-  const thr = Math.max(45 * 60000, cyc * 3);
+  const up = computeUptime(xMin, xMax);
+  if (!up.segs.length){ svg.innerHTML = `<text x="${(W/2).toFixed(0)}" y="${(H/2).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="11">${t('no_data')}</text>`; if (meta) meta.textContent = ''; svg.__ctx = { pts: [] }; return; }
   const sx = v => ((v - xMin) / span) * (W - LEFT - RIGHT) + LEFT;
   const cx = v => Math.max(LEFT, Math.min(W - RIGHT, sx(v)));
   const BY = TOP, BH = H - TOP - BOT;
-  const rect = (a, b, col, op) => { const x0 = cx(a), x1 = cx(b); return (x1 - x0 < 0.4) ? '' : `<rect x="${x0.toFixed(1)}" y="${BY}" width="${(x1-x0).toFixed(1)}" height="${BH}" fill="${col}" opacity="${op}"/>`; };
-  let segs = '', online = 0, gaps = 0, segStart = ts[0];
-  for (let i = 1; i < ts.length; i++){
-    if (ts[i] - ts[i-1] > thr){
-      segs += rect(segStart, ts[i-1], '#3fb950', .65);
-      segs += rect(ts[i-1], ts[i], '#f85149', .55);          /* real outage = red */
-      online += ts[i-1] - segStart; gaps++; segStart = ts[i];
-    }
-  }
-  segs += rect(segStart, ts[ts.length-1], '#3fb950', .65);
-  online += ts[ts.length-1] - segStart;
-  if (xMax - ts[ts.length-1] > thr) segs += rect(ts[ts.length-1], xMax, '#f85149', .55);   /* silent up to now */
-  const pct = Math.round(online / span * 100);
+  /* min width ~0.7px so a real segment never vanishes (sub-pixel drop = black gaps in
+   * the data region when a busy up/down period is squeezed into a 30d view). */
+  const rect = (a, b, col, op) => { const x0 = cx(a), x1 = cx(b); const w = x1 - x0; return (w <= 0) ? '' : `<rect x="${x0.toFixed(1)}" y="${BY}" width="${Math.max(0.7, w).toFixed(1)}" height="${BH}" fill="${col}" opacity="${op}"/>`; };
+  const COL = ['#3fb950', '#d29922', '#f85149'], OPA = [.65, .75, .55];
+  let segs = '';
+  for (const [a, b, st] of up.segs) segs += rect(a, b, COL[st] || '#3fb950', OPA[st] ?? .65);
   const { step, fmt } = timeTickConfigForSpan(span);
   let xticks = ''; const tk0 = Math.ceil(xMin / step) * step;
   for (let tk = tk0; tk <= xMax; tk += step){ const x = sx(tk).toFixed(1); xticks += `<line x1="${x}" y1="${H-BOT}" x2="${x}" y2="${H-BOT+3}" stroke="var(--mut)"/><text x="${x}" y="${(H-BOT+13).toFixed(0)}" text-anchor="middle" fill="var(--mut)" font-size="9">${fmt(new Date(tk))}</text>`; }
   const track = `<rect x="${LEFT}" y="${BY}" width="${(W-LEFT-RIGHT).toFixed(1)}" height="${BH}" rx="3" fill="var(--line)" opacity=".3"/>`;
   svg.innerHTML = track + segs + xticks;
   if (meta){
-    const oh = online / 3600000;
-    const dur = oh >= 1 ? oh.toFixed(1) + ' h' : Math.round(online / 60000) + ' min';
-    meta.textContent = `${pct}% · ${dur} online · ${gaps} ${t('uptime_gaps')}`;
+    const fmtDur = ms => { const h = ms / 3600000; return h >= 1 ? h.toFixed(1) + ' h' : Math.round(ms / 60000) + ' min'; };
+    const uptime = up.green + up.yellow;   /* Σ = доступність = онлайн + прострочка (без червоного дауну) */
+    meta.textContent = `🟢 ${fmtDur(up.green)} · 🟡 ${fmtDur(up.yellow)} · 🔴 ${fmtDur(up.red)} · Σ ${fmtDur(uptime)}`;
   }
   svg.__ctx = { pts: [] };
 }
@@ -933,10 +897,10 @@ function drawWindTimeline(pts, svgId = 'chart-wt', win = null, noGust = false){
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const TOP = 34, BOT = 26, LEFT = 32, RIGHT = 8;   /* TOP lane holds dir arrows */
   if (!pts.length){ if (win) drawEmptyWindow(svg, W, H, win); else svg.innerHTML = `<text x="${W/2}" y="110" text-anchor="middle" fill="var(--mut)" font-size="12">${t('no_data')}</text>`; svg.__ctx = { pts: [] }; svg.__hideTip && svg.__hideTip(); return; }
-  const xMin = pts[0].ts, xMax = pts[pts.length-1].ts;   /* fit to data; win only for empty views */
+  const xMin = win ? win.start : pts[0].ts, xMax = win ? win.end : pts[pts.length-1].ts;   /* fit to zoom window (or data extent) */
   const hasGust = !noGust && pts.some(p => (p.speedMax ?? p.speed) > p.speed + 0.05);
   const yMax = niceCeil(Math.max(5, ...pts.map(p => Math.max(p.speed, p.speedMax ?? 0))));
-  const sx = ts => ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT;
+  const sx = ts => Math.max(LEFT, Math.min(W - RIGHT, ((ts - xMin) / (xMax - xMin || 1)) * (W - LEFT - RIGHT) + LEFT));
   const sy = v  => H - BOT - (Math.min(v, yMax) / yMax) * (H - TOP - BOT);
   const uid = 'wg-' + svgId;
 
@@ -1047,7 +1011,10 @@ function drawWindRose(pts){
     if (p.dir != null && p.dir >= 0 && p.dir < 8){ bins[p.dir]++; total++; }
   }
   const svg = $('chart-rose');
-  if (!total){ svg.innerHTML = `<text x="110" y="110" text-anchor="middle" fill="var(--mut)" font-size="11">${t('no_data')}</text>`; return; }
+  if (!total){ svg.innerHTML = `<circle cx="110" cy="110" r="100" fill="none" stroke="var(--line)"/>
+    <circle cx="110" cy="110" r="66" fill="none" stroke="var(--line)" stroke-dasharray="2 3" opacity=".5"/>
+    <circle cx="110" cy="110" r="33" fill="none" stroke="var(--line)" stroke-dasharray="2 3" opacity=".5"/>
+    <text x="110" y="114" text-anchor="middle" fill="var(--mut)" font-size="11" opacity=".7">${t('offline_nodata')}</text>`; return; }
   const maxBin = Math.max(...bins);
   let elems = `<circle cx="110" cy="110" r="100" fill="none" stroke="var(--line)"/>
                <circle cx="110" cy="110" r="66"  fill="none" stroke="var(--line)" stroke-dasharray="2 3" opacity=".5"/>
@@ -1111,15 +1078,13 @@ async function loadHeatmapData(){
   if (Date.now() - hmLoadedAt < 5 * 60000) return;   /* refresh at most every 5 min */
   hmLoadedAt = Date.now();
   try {
+    await Cache.init();
     const SF = SPEED_FACTOR * spdMul();
-    const d = await fjson(SRV + '?range=7d&bin=3600&compact=1&fmt=c&t=' + Date.now());
-    if (Array.isArray(d)){
-      hmPts = d.map(e => {
-        const sm = e.sm ?? e.speed_mean ?? e.s ?? 0;
-        return { ts: entryTs(e), speed: (sm / 2) * SF };
-      }).filter(p => p.ts);
-      if (document.querySelector('.tab.active')?.dataset.page === 'history') drawHistoryCharts();
-    }
+    const now = Date.now();
+    /* Hourly patterns from the LOCAL 1h tier (no server fetch). */
+    const recs = Cache.tier('1h', now - 7 * 86400000, now);
+    hmPts = recs.map(r => ({ ts: r.t, speed: (r.sm / 2) * SF }));
+    if (document.querySelector('.tab.active')?.dataset.page === 'history') drawHistoryCharts();
   } catch { hmLoadedAt = 0; }   /* allow retry on failure */
 }
 function drawHeatmap(pts){

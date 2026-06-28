@@ -44,7 +44,6 @@ const SOLAR_CHARGE_MV = 4000;
 const SOLAR_EFF       = 0.85;   /* CN3791 buck efficiency for the instantaneous charge-current estimate */
 const BATT_FULL_MV    = 4150;   /* at/above → treat as full, charge tapers to ~0 ("charged full") */
 const BATT_SOON_MV    = 4100;   /* charging above this → "almost full, will stop charging soon" */
-let ALERTS_ON  = localStorage.getItem('alerts_on') === '1';
 /* Per-type alert config (each independently toggleable). v = wind in display unit. */
 const ALERT_DEFAULTS = { battLow:{on:true,mv:3400}, battCrit:{on:true,mv:3300}, windHigh:{on:false,v:20}, offline:{on:true,min:30}, online:{on:true}, solar:{on:true} };
 let ALERTS = (() => {

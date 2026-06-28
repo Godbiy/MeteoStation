@@ -1,9 +1,22 @@
 /* =========== POLLING =========== */
+/* Ф4: keep the master cache fresh on EVERY poll (any tab) — live posts land in the
+ * same store as regular ones. During live the poll cadence is ~2s, so the tail syncs
+ * fast. Tiny: only `?since=newest` (a handful of new posts). Empty cache → leave the
+ * full pull to the Sync button. */
+async function syncTail(){
+  try {
+    const newest = Math.floor((await dbNewestTs()) / 1000);
+    if (!newest) return;
+    const data = await fjson(SRV + '?since=' + newest + '&compact=1&fmt=c&keep_raw=1&t=' + Date.now());
+    if (Array.isArray(data) && data.length) await dbPut(data);
+  } catch { /* offline — cache keeps last state */ }
+}
 async function poll(){
   if (testMode) return;
   try {
     lastConfig = await fjson(SRV + '?config=1&t=' + Date.now());
     renderConfig();
+    syncTail();   /* keep the master cache current regardless of active tab */
     if (lastConfig.live){
       const live = await fjson(SRV + '?live_now=1&t=' + Date.now());
       if (live.ok) lastSnapshot = live;

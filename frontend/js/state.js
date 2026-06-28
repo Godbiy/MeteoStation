@@ -16,6 +16,7 @@ const LIVE_STATES = [
   { id: 'live', icon: 'ic-live', nameKey: 'st_live_n', descKey: 'st_live_d' },
 ];
 const OFFLINE_STATE = { id:'offline', icon:'ic-warn',  nameKey: 'st_off_n',  descKey: 'st_off_d'  };
+const SWITCHING_STATE = { id:'switch', icon:'ic-clock', nameKey: 'st_switch_n', descKey: 'st_switch_d' };
 const LIVE_PENDING  = { id:'lpend',   icon:'ic-clock', nameKey: 'st_lpend_n', descKey: 'st_lpend_d' };
 const LIVE_EXITING  = { id:'lexit',   icon:'ic-clock', nameKey: 'st_lexit_n', descKey: 'st_lexit_d' };
 const stN = s => t(s.nameKey) || s.id;
@@ -30,6 +31,7 @@ const STATE_COLOR = {
   live:   '#bc8cff',   /* purple — live streaming (pulses) */
   lpend:  '#d29922',   /* amber — live change pending */
   lexit:  '#d29922',
+  switch: '#d29922',   /* amber — config change in flight (switching) */
   offline:'#f85149',   /* red — module silent */
 };
 
@@ -56,20 +58,46 @@ function observedLiveCycle(){
  * If they differ by >40% → config just changed, observed is stale → trust intended.
  * Otherwise observed is more accurate (accounts for real GSM jitter). */
 function effectiveCycle(cfg){
-  if (!cfg) return { sec: 60, source: 'fallback', pending: false };
+  if (!cfg) return { sec: 60, source: 'fallback', pending: false, applied: true };
   const intended = cfg.intended_cycle_seconds || (cfg.samples * cfg.avg * 2 + 15);
   const observed = cfg.cycle_seconds || 0;
-  if (!observed) return { sec: intended, observed, intended, source: 'intended', pending: false };
+  /* Backend state machine is authoritative: it knows the real running cycle and whether the
+   * module has CONFIRMED a config change (ground-truth via last_samples), so no median lag. */
+  if (cfg.cycle_eff_sec){
+    return { sec: cfg.cycle_eff_sec, observed, intended,
+             source: cfg.pending ? 'switching' : 'applied',
+             pending: !!cfg.pending, applied: cfg.applied !== false };
+  }
+  /* Fallback for an old server with no state: the median-ratio heuristic. */
+  if (!observed) return { sec: intended, observed, intended, source: 'intended', pending: false, applied: true };
   const ratio = Math.max(intended, observed) / Math.min(intended, observed);
-  const pending = ratio > 1.4;       /* >40% diff = config not applied yet */
+  const pending = ratio > 1.4;
   return { sec: pending ? intended : observed, observed, intended,
-           source: pending ? 'intended' : 'observed', pending };
+           source: pending ? 'intended' : 'observed', pending, applied: !pending };
+}
+
+/* Ground-truth facts the module actually reported on its last REGULAR POST.
+ * The server now sends these in ?config=1 — so the Status tab SHOWS what happened
+ * instead of inferring it. null fields mean "server hasn't sent it yet" (old log). */
+function lastPostFacts(){
+  if (!lastConfig) return null;
+  return {
+    samples:  lastConfig.last_samples ?? null,   /* N actually collected */
+    expected: lastConfig.samples ?? null,        /* N currently configured */
+    cycle:    lastConfig.last_cycle ?? null,      /* firmware cycle counter */
+    batt:     lastConfig.last_batt_mv ?? null,
+    solar:    lastConfig.last_solar_mv ?? null,
+    csq:      lastConfig.last_csq ?? null,
+    bytes:    lastConfig.last_raw_bytes ?? null,
+    ver:      lastConfig.last_version ?? null,
+  };
 }
 
 function inferState(){
   if (!lastConfig) return { cur: null, pct: 0, untilNext: null, lastSec: null };
   const eff = effectiveCycle(lastConfig);
   const cycle = eff.sec;
+  const facts = lastPostFacts();
 
   /* In LIVE mode, the freshest signal is `lastSnapshot.timestamp` (live POST).
    * In NORMAL mode, use config.last_timestamp from the main log. */
@@ -84,10 +112,27 @@ function inferState(){
   const liveCycle = observedLiveCycle() || 60;       /* fall back to 60s when unknown */
   const expectedCycle = lastConfig.live ? liveCycle : cycle;
 
-  /* OFFLINE detection: no POST in 2× expected cycle + 60s grace */
-  if (sinceLast != null && sinceLast > expectedCycle * 2 + 60){
+  /* Coarse link/config state comes from the BACKEND state machine (cycle-relative, switch-
+   * aware). Fall back to the local heuristic only if an old server didn't send `state`. */
+  const bState = lastConfig.state;
+
+  /* OFFLINE — module genuinely silent past the auto-reboot window. */
+  const isOffline = bState ? bState === 'offline'
+                           : (sinceLast != null && sinceLast > expectedCycle * 2 + 60);
+  if (isOffline){
     return { cur: OFFLINE_STATE, states: [OFFLINE_STATE], idx: 0,
-             pct: 100, untilNext: null, lastSec: sinceLast, cycleSec: expectedCycle, offline: true };
+             pct: 100, untilNext: null, lastSec: sinceLast, cycleSec: expectedCycle,
+             offline: true, facts, eff, health: 'missed',
+             overdue: sinceLast != null ? sinceLast - expectedCycle : null };
+  }
+
+  /* SWITCHING — a config change the module hasn't confirmed yet. Calm amber, NOT offline:
+   * this is what kills the false "no connection" while the station finishes its old cycle. */
+  if (bState === 'switching' || (bState == null && eff.pending)){
+    const eta = lastConfig.next_expected_sec;
+    return { cur: SWITCHING_STATE, states: [SWITCHING_STATE], idx: 0,
+             pct: 0, untilNext: eta != null ? eta : null, lastSec: sinceLast,
+             cycleSec: expectedCycle, facts, eff, switching: true };
   }
 
   if (lastConfig.live){
@@ -96,30 +141,47 @@ function inferState(){
     const liveOk = sinceLast != null && sinceLast < expectedCycle * 1.5 + 30;
     if (!liveOk){
       return { cur: LIVE_PENDING, states: [LIVE_PENDING], idx: 0,
-               pct: 0, untilNext: null, lastSec: sinceLast, cycleSec: expectedCycle };
+               pct: 0, untilNext: null, lastSec: sinceLast, cycleSec: expectedCycle, facts, eff };
     }
     const cyclePos = sinceLast % expectedCycle;
     return { cur: LIVE_STATES[0], states: LIVE_STATES, idx: 0,
              pct: (cyclePos / expectedCycle) * 100,
              untilNext: Math.max(0, expectedCycle - cyclePos),
-             lastSec: sinceLast, cycleSec: expectedCycle };
+             lastSec: sinceLast, cycleSec: expectedCycle, facts, eff, live: true };
   }
 
   /* Normal cycle */
-  if (sinceLast == null) return { cur: NORMAL_STATES[0], states: NORMAL_STATES, idx: 0, pct: 0, untilNext: null, lastSec: null };
+  if (sinceLast == null) return { cur: NORMAL_STATES[0], states: NORMAL_STATES, idx: 0, pct: 0, untilNext: null, lastSec: null, facts, eff };
 
   const cyclePos = sinceLast % cycle;
-  let idx;
-  if (cyclePos < 2) idx = 0;
-  else if (cyclePos < cycle - 5) idx = 1;
-  else if (cyclePos < cycle - 2) idx = 2;
-  else idx = 3;
+  /* Sample collection is TIME-DETERMINISTIC: each stored sample = avg×2s of WDT sleep.
+   * So we can give a GROUNDED estimate of "sample k of N" (shown with ≈) — far better
+   * than a vague bubble — instead of pretending to read the (sleeping) firmware's state.
+   * After the collection window the module wakes GSM + POSTs (the ~15s tail). */
+  const period     = Math.max(2, (lastConfig.avg || 1) * 2);   /* s per stored sample */
+  const expN       = lastConfig.samples || 1;
+  const collectSec = expN * period;                            /* collection duration */
+  let idx, sampleIdx = null;
+  if (cyclePos < 2){ idx = 0; }                                /* just posted → sleeping */
+  else if (cyclePos < collectSec){                             /* collecting */
+    idx = 1;
+    sampleIdx = Math.min(expN, Math.floor(cyclePos / period) + 1);
+  } else if (cyclePos < cycle - 2){ idx = 2; }                 /* GSM wake/register */
+  else { idx = 3; }                                            /* posting */
+
+  /* Cadence health vs the expected cycle: how late is this POST? */
+  const overdue = sinceLast - expectedCycle;                   /* >0 = running late */
+  const health  = overdue > Math.max(30, expectedCycle * 0.5) ? 'late' : 'ok';
+
   return { cur: NORMAL_STATES[idx], states: NORMAL_STATES, idx,
            pct: (cyclePos / cycle) * 100,
            untilNext: Math.max(0, cycle - cyclePos),
            lastSec: sinceLast, cycleSec: cycle,
-           eff };
+           facts, eff, sampleIdx, expN, health, overdue };
 }
+
+/* Silence watchdog removed — "module offline" is now a SERVER push (linkState → tick),
+ * which also works when no dashboard is open. No foreground notification here. */
 
 /* Tint the Live + Status tab icons by what's happening: green = normal & fresh ·
  * blue(pulse) = live streaming · amber = live pending · red = offline. */
@@ -146,7 +208,10 @@ function setTabIcon(page, color, pulse){
 function updateTabBadges(){
   /* Settings — red if alerts on but notifications can't fire; amber+pulse if a change is pending */
   let setColor = '', setPulse = false;
-  const permBad = ALERTS_ON && ('Notification' in window) && Notification.permission !== 'granted';
+  /* Settings turns red if this device opted into SERVER push but notification permission is
+   * missing (so pushes can't show). */
+  const spushOn = localStorage.getItem('spush_on') === '1' || localStorage.getItem('live_pin') === '1';
+  const permBad = spushOn && ('Notification' in window) && Notification.permission !== 'granted';
   const pend = Array.isArray(pending) && pending.some(p => p.status === 'waiting');
   if (permBad) setColor = 'var(--err)';
   else if (pend){ setColor = 'var(--warn)'; setPulse = true; }
@@ -165,22 +230,86 @@ function updateTabBadges(){
   const histNew = document.getElementById('badge-history')?.classList.contains('on');
   setTabIcon('history', '', !!histNew);
 }
+/* Big "online over the last 24h" counter on the Status tab. Computes from the cached 24h
+ * slice (not the working `history`, which may hold a different range) so it's always right. */
+async function updateOnlineStat(){
+  const big = document.getElementById('st-online-big'), sub = document.getElementById('st-online-sub');
+  if (!big) return;
+  try {
+    const now = Date.now(), from = now - 86400000;
+    const arr = await dbRange(from, now);
+    const u = computeUptime(from, now, arr);
+    big.textContent = fmtDur((u.green + u.yellow) / 1000);
+    sub.innerHTML = `<span style="color:#3fb950">●</span> ${fmtDur(u.green / 1000)} · ` +
+                    `<span style="color:#d29922">●</span> ${fmtDur(u.yellow / 1000)}`;
+  } catch { big.textContent = '—'; }
+}
+
 function renderStatus(){
+  updateOnlineStat();
   const s = inferState();
   if (!s.cur){
     $('st-icon').innerHTML = icSvg('ic-status'); $('st-icon').style.color = 'var(--mut)';
     $('st-name').textContent = '—'; $('st-desc').textContent = 'чекаю на дані сервера';
     $('st-countdown').textContent = '—'; $('st-progress').style.width = '0%';
+    if ($('st-collect')) $('st-collect').textContent = '';
+    if ($('st-health'))  $('st-health').textContent = '';
+    if ($('st-facts'))   $('st-facts').innerHTML = '';
     $('st-machine').innerHTML = ''; return;
   }
   $('st-icon').innerHTML = icSvg(s.cur.icon);
-  $('st-icon').style.color = s.cur.id === 'offline' ? 'var(--warn)' : 'var(--accent)';
+  $('st-icon').style.color = (s.cur.id === 'offline' || s.cur.id === 'switch') ? 'var(--warn)' : 'var(--accent)';
   $('st-name').textContent = stN(s.cur);
   $('st-desc').textContent = stD(s.cur);
   $('st-countdown').textContent = s.untilNext != null ? Math.ceil(s.untilNext) + 's' : '—';
   $('st-progress').style.width = Math.min(100, s.pct).toFixed(1) + '%';
   $('st-last-post').textContent = 'last: ' + (s.lastSec != null ? fmtAgo(s.lastSec) : '—');
   $('st-next-post').textContent = 'next: ' + (s.untilNext != null ? '~' + Math.ceil(s.untilNext) + 's' : '—');
+
+  /* Grounded collection estimate: "≈ проба k/N" while sampling (idx 1). */
+  const collectEl = $('st-collect');
+  if (collectEl){
+    if (s.sampleIdx != null && s.expN){
+      collectEl.style.color = 'var(--ok)';
+      collectEl.textContent = `≈ ${t('st_sample_lbl') || 'sample'} ${s.sampleIdx}/${s.expN} (${t('st_est') || 'est.'})`;
+    } else {
+      collectEl.textContent = '';
+    }
+  }
+
+  /* Cadence health badge (on-time / late / missed). */
+  const healthEl = $('st-health');
+  if (healthEl){
+    if (s.offline){ healthEl.style.color = 'var(--err)'; healthEl.textContent = '● ' + (t('st_health_missed') || 'missed'); }
+    else if (s.health === 'late'){ healthEl.style.color = 'var(--warn)'; healthEl.textContent = '● ' + (t('st_health_late') || 'late') + ' +' + Math.round(s.overdue) + 's'; }
+    else if (s.health === 'ok'){ healthEl.style.color = 'var(--ok)'; healthEl.textContent = '● ' + (t('st_health_ok') || 'on time'); }
+    else { healthEl.textContent = ''; }
+  }
+
+  /* Ground-truth facts from the last POST (what the module ACTUALLY reported). */
+  const factsEl = $('st-facts');
+  if (factsEl){
+    const f = s.facts || {};
+    const chip = (label, val, tone) => val == null || val === ''
+      ? '' : `<div class="kv" style="display:flex;flex-direction:column;gap:1px;padding:6px 8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px">
+                <span class="k" style="font-size:10px;color:var(--mut)">${label}</span>
+                <span class="v" style="font-size:13px;font-weight:600${tone ? ';color:' + tone : ''}">${val}</span>
+              </div>`;
+    /* samples received vs expected — green when they match (config applied), amber if not */
+    let recvVal = '—', recvTone = '';
+    if (f.samples != null){
+      recvVal = f.expected != null ? `${f.samples}/${f.expected}` : `${f.samples}`;
+      recvTone = (f.expected != null && f.samples != f.expected) ? 'var(--warn)' : 'var(--ok)';
+    }
+    factsEl.innerHTML = [
+      chip(t('st_recv') || 'received', recvVal, recvTone),
+      chip(t('st_cycle_lbl') || 'cycle', f.cycle != null ? '#' + f.cycle : null),
+      chip('🔋', f.batt != null ? (f.batt / 1000).toFixed(2) + 'V' : null),
+      chip('☀', f.solar != null ? (f.solar / 1000).toFixed(2) + 'V' : null),
+      chip('📶 CSQ', f.csq != null ? (f.csq == 99 ? '99' : f.csq) : null, f.csq == 99 ? 'var(--warn)' : ''),
+      chip(t('st_bytes') || 'bytes', f.bytes != null ? f.bytes : null),
+    ].join('');
+  }
 
   /* state machine bubbles */
   const mc = $('st-machine'); mc.innerHTML = '';
@@ -203,13 +332,19 @@ function renderStatus(){
     const eff = effectiveCycle(lastConfig);
     const intHuman = fmtSec(eff.intended);
     const obsHuman = eff.observed ? fmtSec(eff.observed) : '—';
-    if (eff.pending){
+    /* Authoritative: backend `state==='switching'` (module hasn't confirmed) vs the old
+     * median-ratio fallback. No more "median catches up in ~10 POSTs" — clears on the first
+     * confirming POST. */
+    const switching = lastConfig.state ? lastConfig.state === 'switching' : eff.pending;
+    if (switching){
+      const eta = lastConfig.next_expected_sec;
+      const etaStr = eta != null ? fmtSec(eta) : '—';   /* i18n body already prefixes "~" */
       banner.style.display = 'block';
       banner.style.background = 'rgba(210,153,34,.12)';
       banner.style.border = '1px solid rgba(210,153,34,.5)';
       banner.style.color  = 'var(--warn)';
-      banner.innerHTML = `⚠ <b>${t('sync_pending_title')}</b> ` +
-        `${t('sync_pending_body').replace('{int}', `<b>${intHuman}</b>`).replace('{obs}', `<b>${obsHuman}</b>`)}`;
+      banner.innerHTML = `🔄 <b>${t('sync_switch_title')}</b> ` +
+        `${t('sync_switch_body').replace('{int}', `<b>${intHuman}</b>`).replace('{eta}', `<b>${etaStr}</b>`)}`;
     } else if (eff.observed && lastConfig.intended_cycle_seconds){
       banner.style.display = 'block';
       banner.style.background = 'rgba(63,185,80,.08)';
@@ -245,10 +380,32 @@ function trackPending(kind, target){
 function checkPending(){
   if (!lastConfig) return;
   let changed = false;
+  /* A change is only PROVEN applied when the MODULE acted on it — i.e. a real POST
+   * arrived AFTER we made the change. Previously this compared the server config to
+   * itself, so it flipped to "applied" the instant we saved — never confirming the
+   * module. Now we confirm against the last POST's actual data. */
+  const postTs    = lastConfig.last_timestamp ? parseServerTs(lastConfig.last_timestamp) : 0;
+  const liveTs    = lastSnapshot?.timestamp ? parseServerTs(lastSnapshot.timestamp) : 0;
   for (const p of pending){
     if (p.status !== 'waiting') continue;
-    const target = p.target;
-    const ok = Object.keys(target).every(k => lastConfig[k] == target[k]);
+    const target   = p.target;
+    const newPost  = postTs > p.startedAt;                       /* fresh regular POST since the change */
+    const liveFresh= lastConfig.live && liveTs > p.startedAt;    /* fresh live POST since the change */
+    let ok = true;
+    for (const k of Object.keys(target)){
+      if (k === 'samples'){
+        /* The payload carries N actually collected → real proof of application. */
+        ok = ok && newPost && (lastConfig.last_samples == target.samples);
+      } else if (k === 'live'){
+        /* Module entered/left live: state matches AND a fresh POST (regular or live) confirms it. */
+        ok = ok && (lastConfig.live == target.live) && (newPost || liveFresh);
+      } else if (k === 'avg'){
+        /* avg isn't in the payload — can't prove directly; accept once a fresh POST lands. */
+        ok = ok && (newPost || liveFresh);
+      } else {
+        ok = ok && (lastConfig[k] == target[k]) && (newPost || liveFresh);
+      }
+    }
     if (ok){ p.status = 'applied'; p.appliedAt = Date.now(); changed = true; }
     else if (Date.now() - p.startedAt > 600000){ p.status = 'failed'; changed = true; }   /* 10min timeout */
   }

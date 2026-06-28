@@ -67,11 +67,9 @@
     </div>
   </div>
 
-  <div class="card lite-hide">
-    <h2><span data-i18n="speed_last_hour">Швидкість + напрямок за годину</span> <span class="meta" id="live-wt-meta"></span></h2>
-    <div class="row-gap" style="margin:-2px 0 8px;font-size:11px;color:var(--mut);align-items:center">
-      <span data-i18n="smooth">згладження</span>
-      <select id="smooth-sel-live" style="font-size:11px;padding:2px 4px">
+  <div class="card lite-hide" style="margin-top:14px">
+    <h2><span data-i18n="speed_last_hour">Швидкість + напрямок за годину</span>
+      <select id="smooth-sel-live" title="згладження" style="font-size:10px;padding:1px 4px;font-weight:400;margin-left:8px;text-transform:none;letter-spacing:0">
         <option value="0">raw</option>
         <option value="5">10s</option>
         <option value="15">30s</option>
@@ -80,7 +78,7 @@
         <option value="450">15m</option>
         <option value="0" data-mean="1">avg/POST</option>
       </select>
-    </div>
+      <span class="meta" id="live-wt-meta"></span></h2>
     <svg id="chart-live-wt" viewBox="0 0 600 220" style="width:100%;height:220px"></svg>
   </div>
 </div>

@@ -1,6 +1,6 @@
 /* ===== Mobile: bottom tab bar (thumb reach) + bigger touch targets ===== */
 @media (max-width:640px){
-  body{padding-bottom:62px}
+  body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   h1 #test-toggle,h1 #theme-toggle,h1 .lang-btn{display:none}   /* moved into Settings */
   .tabs{position:fixed;left:0;right:0;bottom:0;z-index:40;margin:0;background:var(--panel);
         border-top:1px solid var(--line);border-bottom:none;overflow:visible;

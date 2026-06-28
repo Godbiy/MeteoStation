@@ -34,6 +34,7 @@ function switchToTab(page, anim, prerendered){
   document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
   document.querySelectorAll('.page').forEach(x => x.classList.remove('active', 'slide-r', 'slide-l', 'no-in'));
   t.classList.add('active');
+  if (typeof updateZoomChrome === 'function') updateZoomChrome();   /* hide the reset button off the History tab */
   const np = $('page-' + page);
   /* Swipe already slid the page fully into place — adding .active would re-fire pageIn
    * (opacity 0→1 = blink, translateY 5px = jerk down). Suppress it for the swipe path. */
@@ -130,7 +131,7 @@ document.addEventListener('change', e => { if (e.target?.closest?.('.switch')) h
     d = null;
     setTimeout(() => {
       ['transform', 'transition', 'willChange'].forEach(p => a.style[p] = '');
-      ['position', 'top', 'left', 'width', 'height', 'overflow', 'zIndex', 'background', 'display', 'margin', 'transform', 'transition', 'willChange'].forEach(p => n.style[p] = '');
+      ['position', 'top', 'left', 'width', 'height', 'overflow', 'zIndex', 'background', 'display', 'margin', 'paddingBottom', 'transform', 'transition', 'willChange'].forEach(p => n.style[p] = '');
       if (target) switchToTab(target, null, true);   /* neighbour already rendered at engage */
     }, 210);
   }, { passive: true });

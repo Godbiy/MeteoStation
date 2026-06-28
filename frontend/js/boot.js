@@ -59,6 +59,16 @@ renderLive();
 startPoll();
 seedBattLog();   /* bootstrap the battery-trend buffer for the honest charge badge */
 
+/* Variant-B fallback: keep the host-side push watchdog (?daemon) alive while this
+ * dashboard is open, so silence / live-pin pushes fire even with no external cron.
+ * The server-side {ts,nonce} lock makes ?daemon a singleton, so re-kicking is free.
+ * Only spun up for users who actually granted notifications. */
+(function kickWatchdog(){
+  if (('Notification' in window) && Notification.permission === 'granted')
+    fetch(SRV + '?daemon=1', { cache: 'no-store' }).catch(() => {});
+  setTimeout(kickWatchdog, 240000);   /* re-seed every 4 min in case the baton dropped */
+})();
+
 /* ===== Remember tab + scroll across reloads (don't dump back to Live) ===== */
 (function(){
   const NAV_KEY = 'nav_state';

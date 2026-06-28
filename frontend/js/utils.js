@@ -19,6 +19,85 @@ function toast(msg, type=false){
 }
 /* retrigger the scale "bump" animation on an element */
 function bump(el){ if (!el) return; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+
+/* ===== Export ===== */
+function _download(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+/* Whole cached history → CSV or JSON (everything we have locally, not just the open range). */
+async function exportData(fmt){
+  let rows; try { rows = await dbRange(0, Date.now()); } catch { rows = (typeof history !== 'undefined' && history) || []; }
+  if (!rows || !rows.length){ toast(t('export_empty'), 'warn'); return; }
+  if (fmt === 'json'){ _download(new Blob([JSON.stringify(rows)], { type: 'application/json' }), 'meteo.json'); }
+  else {
+    const SF = SPEED_FACTOR * spdMul();
+    const lines = ['timestamp,batt_mv,solar_mv,csq,samples,speed_mean_kmh,speed_max_kmh,dir'];
+    for (const e of rows){
+      const arr = e.speed || e.sp; let sm, sx;
+      if (Array.isArray(arr) && arr.length){ let s=0,mx=0; for (const v of arr){ s+=v; if(v>mx)mx=v; } sm=s/arr.length; sx=mx; }
+      else { sm = e.speed_mean ?? e.sm ?? 0; sx = e.speed_max ?? e.sx ?? sm; }
+      const tsv = e.timestamp || e.t || new Date(entryTs(e)).toISOString();
+      lines.push([tsv, e.batt_mv ?? e.b ?? '', e.solar_mv ?? e.sol ?? '', e.csq ?? e.c ?? '',
+        (Array.isArray(arr) ? arr.length : (e.samples ?? e.n ?? '')),
+        (sm/2*SF).toFixed(2), (sx/2*SF).toFixed(2), e.vane_mode_label ?? e.vl ?? ''].join(','));
+    }
+    _download(new Blob([lines.join('\n')], { type: 'text/csv' }), 'meteo.csv');
+  }
+  toast(t('export_done') + ' ' + rows.length, 'info');
+}
+/* Serialize a chart <svg> into a standalone, self-contained SVG string: CSS custom props
+ * (var(--line)…) don't resolve outside the page, so inline computed values; add xmlns +
+ * a background rect so the file looks the same as on screen. */
+function _chartXml(svg){
+  let xml = new XMLSerializer().serializeToString(svg);
+  const cs = getComputedStyle(document.body);
+  ['--line','--mut','--fg','--bg','--accent','--ok','--err','--warn','--panel','--panel2','--purple']
+    .forEach(v => { const val = cs.getPropertyValue(v).trim(); if (val) xml = xml.split('var(' + v + ')').join(val); });
+  if (!/xmlns=/.test(xml)) xml = xml.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  const vb = (svg.getAttribute('viewBox') || '0 0 600 200').split(/\s+/).map(Number);
+  const bg = cs.getPropertyValue('--bg').trim() || '#0d1117';
+  /* inject a full-canvas bg rect right after the opening <svg ...> tag */
+  const xmlBg = xml.replace(/(<svg[^>]*>)/, `$1<rect x="0" y="0" width="${vb[2]||600}" height="${vb[3]||200}" fill="${bg}"/>`);
+  return { xml: xmlBg, w: svg.clientWidth || vb[2] || 600, h: svg.clientHeight || vb[3] || 200, bg };
+}
+/* chart <svg> → PNG (raster, 2×) */
+function exportChartPNG(svg, name){
+  if (!svg) return;
+  const { xml, w, h, bg } = _chartXml(svg), sc = 2;
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = w * sc; c.height = h * sc;
+    const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(bl => { if (bl) _download(bl, (name || 'chart') + '.png'); else toast('PNG error', 'err'); });
+  };
+  img.onerror = () => toast('PNG error', 'err');
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+}
+/* chart <svg> → SVG (vector, scalable) */
+function exportChartSVG(svg, name){
+  if (!svg) return;
+  _download(new Blob([_chartXml(svg).xml], { type: 'image/svg+xml' }), (name || 'chart') + '.svg');
+}
+/* small format-picker shown when the chart export button is clicked */
+function closeExportMenu(){ const m = document.getElementById('export-menu'); if (m) m.remove(); }
+function exportChartMenu(svg, name, anchor){
+  closeExportMenu();
+  const m = document.createElement('div'); m.id = 'export-menu'; m.className = 'export-menu';
+  m.innerHTML = '<button data-fmt="png">PNG</button><button data-fmt="svg">SVG</button>';
+  document.body.appendChild(m);
+  const r = anchor.getBoundingClientRect();
+  m.style.top = (r.bottom + 4) + 'px';
+  m.style.left = Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8)) + 'px';
+  m.addEventListener('click', e => {
+    const f = e.target.closest('[data-fmt]'); if (!f) return;
+    (f.dataset.fmt === 'svg' ? exportChartSVG : exportChartPNG)(svg, name);
+    closeExportMenu();
+  });
+  setTimeout(() => document.addEventListener('click', closeExportMenu, { once: true }), 0);
+}
+addEventListener('click', e => { const b = e.target.closest('[data-export]'); if (b) exportData(b.dataset.export); });
 /* ===== micro-interactions: haptics, tab badges, theme-color, count-up, trend ===== */
 function prefersReduced(){ try { return matchMedia('(prefers-reduced-motion:reduce)').matches; } catch (_) { return false; } }
 /* short vibration — only on touch devices that support it (no-op on desktop), and

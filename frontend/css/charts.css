@@ -30,6 +30,8 @@
 .zoom-info.show{opacity:1}
 .zoom-reset-all{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;border:none;font:inherit;font-weight:600;padding:8px 16px;border-radius:24px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);display:none;z-index:50}
 .zoom-reset-all.show{display:block}
+/* when zoomed, give the page room so the fixed reset button never hides the last card */
+body.zoom-active #page-history{padding-bottom:44px}   /* extra room so the floating reset button (bottom:72px) clears the last card (on top of body's 96px) */
 
 /* Bigger touch targets for mobile day picker */
 .day-select{font-size:14px;padding:8px 10px;width:100%;max-width:300px}

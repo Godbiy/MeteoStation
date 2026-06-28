@@ -41,6 +41,62 @@ $('clear-cache-btn').addEventListener('click', async () => {
   toast('cache cleared');
 });
 
+/* ---- Ф1: full cache sync with a staged progress modal (button-triggered) ---- */
+function syncStep(id, state){
+  const li = document.querySelector(`#sync-steps li[data-step="${id}"]`);
+  if (!li) return;
+  if (state === 'active'){ li.classList.add('active'); li.classList.remove('done'); }
+  else if (state === 'done'){ li.classList.remove('active'); li.classList.add('done'); }
+}
+function syncProgress(done, total){
+  const pct = total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+  const f = $('sync-fill'); if (f) f.style.width = pct + '%';
+  const c = $('sync-count'); if (c) c.textContent = `${done} / ${total} · ${pct}%`;
+}
+async function syncAll(){
+  const modal = $('sync-modal'); if (!modal) return;
+  document.querySelectorAll('#sync-steps li').forEach(x => x.classList.remove('active', 'done'));
+  $('sync-close').hidden = true; $('sync-fill').style.width = '0%'; $('sync-count').textContent = '…';
+  modal.hidden = false;
+  try {
+    syncStep('check', 'active');
+    const stats = await fjson(SRV + '?range=3650d&stats=1&t=' + Date.now());
+    const total = stats.count || 0;
+    syncStep('check', 'done');
+    /* full pull from the beginning, paged via ?since&limit — dbPut dedupes by ts so
+     * any local gaps get filled. ~60KB gzipped for the whole log, tiny. */
+    syncStep('download', 'active'); syncStep('write', 'active');
+    let cursor = 0, fetched = 0; const CHUNK = 800;
+    while (true){
+      const chunk = await fjson(SRV + `?since=${cursor}&limit=${CHUNK}&compact=1&fmt=c&t=${Date.now()}`);
+      if (!Array.isArray(chunk) || !chunk.length) break;
+      await dbPut(chunk);
+      fetched += chunk.length;
+      syncProgress(fetched, total);
+      const lastTs = entryTs(chunk[chunk.length - 1]);
+      const nc = Math.floor(lastTs / 1000);
+      if (!nc || nc <= cursor) break;            /* no forward progress → stop */
+      cursor = nc;
+      if (chunk.length < CHUNK) break;           /* last page */
+    }
+    syncStep('download', 'done'); syncStep('write', 'done');
+    syncStep('trim', 'active');
+    await dbTrim(cacheRetentionDays);
+    syncStep('trim', 'done');
+    syncStep('done', 'done');
+    const cnt = await dbCount();
+    $('sync-fill').style.width = '100%';
+    $('sync-count').textContent = `${cnt} ${t('sync_pts') || 'pts'}`;
+    await updateCacheStats();
+    try { lastSeenHistTs = null; await renderHistory(); } catch {}
+  } catch (e){
+    $('sync-count').textContent = '⚠ ' + (e.message || e);
+  }
+  $('sync-close').hidden = false;
+}
+$('sync-close')?.addEventListener('click', () => { $('sync-modal').hidden = true; });
+$('sync-btn')?.addEventListener('click', syncAll);
+
 /* Show build version; if the token wasn't replaced (running un-built locally) say "dev". */
 (() => { const bv = $('build-ver'); if (bv && bv.textContent.indexOf('BUILD_VER') >= 0) bv.textContent = 'dev (unbuilt)'; })();
 
@@ -248,107 +304,27 @@ function renderSolarNote(){
   renderSolarNote();
 })();
 
-/* Foreground push alerts (low battery / high wind) when the tab is open. */
-let _alertState = {};
-async function notify(title, body, icon){
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const opts = { body, icon: icon || (SRV + '?icon=1'), badge: SRV + '?push_icon=app&badge=1', tag: 'meteo', renotify: true };
-  /* Mobile / PWA forbids `new Notification()` — must go through the service worker. */
-  try {
-    if ('serviceWorker' in navigator){
-      const reg = await swReady();
-      await reg.showNotification(title, opts);
-      return;
-    }
-  } catch (_) {}
-  try { new Notification(title, opts); } catch (_) {}
-}
-/* Edge-triggered: fire only when a condition first becomes true (no spam). */
+/* Notification-icon URL helper (still used by the live-pin "widget"). All alerts now fire
+ * SERVER-side via Web Push — there are no foreground (tab-open) notifications anymore. */
 function pushIcon(type){ return SRV + '?push_icon=' + type; }
-function fireOnce(key, cond, title, body, icon){
-  if (cond && !_alertState[key]) notify(title, body, icon);
-  _alertState[key] = cond;
-}
-/* PWA app-icon badge: the count of currently-active problem alerts (cleared at 0). */
-function updateAppBadge(n){
-  try {
-    if (!('setAppBadge' in navigator)) return;
-    if (n > 0) navigator.setAppBadge(n); else navigator.clearAppBadge();
-  } catch (_) {}
-}
-function checkAlerts(){
-  if (!ALERTS_ON){ updateAppBadge(0); return; }
-  const A = ALERTS;
-  if (lastSnapshot){
-    const mv = lastSnapshot.batt_mv;
-    if (typeof mv === 'number' && mv > 0){
-      const crit = A.battCrit.on && mv < A.battCrit.mv;
-      fireOnce('battCrit', crit, '🔴 ' + t('alert_crit_n'), `${mv} mV`, pushIcon('crit'));
-      fireOnce('battLow', A.battLow.on && mv < A.battLow.mv && !crit, '🔋 ' + t('alert_batt_n'), `${mv} mV`, pushIcon('batt'));
-    }
-    if (A.windHigh.on && A.windHigh.v > 0){
-      const v = (lastSnapshot.pulses_sec || 0) * SPEED_FACTOR * spdMul();
-      fireOnce('windHigh', v > A.windHigh.v, '💨 ' + t('alert_wind_n'), `${v.toFixed(0)} ${spdLbl()}`, pushIcon('wind'));
-    }
-    /* solar / charge state — edge-triggered transitions + a charging badge on the app icon */
-    if (A.solar?.on && typeof mv === 'number' && mv > 0){
-      const cur = liveCurrents(lastSnapshot);
-      fireOnce('chgFull', cur.phase === 'full', '🔋 ' + t('alert_full_n'), t('alert_full_b'), pushIcon('batt'));
-      fireOnce('chgSoon', cur.phase === 'soon', '🔆 ' + t('alert_soon_n'), t('alert_soon_b'), pushIcon('batt'));
-      /* "got / lost sun" tracks the panel only (state), so a full battery doesn't read as "no sun" */
-      const hasSun = cur.state === 'on';
-      if (hasSun  && _alertState.charging === false) notify('☀ ' + t('alert_chgon_n'), '', pushIcon('online'));
-      if (!hasSun && _alertState.charging === true)  notify('🌙 ' + t('alert_chgoff_n'), t('alert_chgoff_b'), pushIcon('crit'));
-      _alertState.charging = hasSun;
-    }
-  }
-  /* offline / back-online from the last regular-post age */
-  const lastTs = lastConfig?.last_timestamp ? parseServerTs(lastConfig.last_timestamp) : 0;
-  if (lastTs && (A.offline.on || A.online.on)){
-    const ageMin = (Date.now() - lastTs) / 60000;
-    const off = A.offline.on && ageMin > A.offline.min;
-    if (off && !_alertState.offline) notify('📡 ' + t('alert_offline_n'), `${Math.round(ageMin)} ${t('minutes')}`, pushIcon('crit'));
-    if (!off && _alertState.offline && A.online.on) notify('✅ ' + t('alert_online_n'), '', pushIcon('online'));
-    _alertState.offline = off;
-  }
-  /* app-icon badge = number of active problem alerts */
-  updateAppBadge(['battCrit', 'battLow', 'windHigh', 'offline'].filter(k => _alertState[k]).length);
-}
+/* checkAlerts / notify / fireOnce / updateAppBadge removed — every alert (battery, wind,
+ * solar/charge, offline/online) is now delivered SERVER-side via Web Push. The thresholds
+ * card below just edits ALERTS and syncs them to the server (spushSyncCfg). */
+/* Notification types + thresholds — these DEFINE WHAT THE SERVER PUSH SENDS (delivery is
+ * enabled per-device in the Server-push card below). No foreground notifications. */
 (function(){
-  const sw = $('al-sw'), perm = $('al-perm'), test = $('al-test'), stat = $('al-stat'), wrap = $('al-types');
-  if (!sw || !wrap) return;
-  const reflect = () => { sw.checked = ALERTS_ON; };
-  reflect();
-  /* fill per-type checkboxes + thresholds from ALERTS */
+  const wrap = $('al-types'); if (!wrap) return;
   wrap.querySelectorAll('input[data-al]').forEach(cb => cb.checked = !!ALERTS[cb.dataset.al]?.on);
-  wrap.querySelectorAll('input[data-th]').forEach(inp => {
-    const c = ALERTS[inp.dataset.th]; if (c) inp.value = c.mv ?? c.v ?? c.min ?? '';
-  });
-  const showPerm = () => { stat.textContent = ('Notification' in window) ? Notification.permission : '—'; };
-  showPerm();
-  const setOn = v => { ALERTS_ON = v; localStorage.setItem('alerts_on', v ? '1' : '0'); reflect(); updateTabBadges(); };
-  sw.addEventListener('change', () => setOn(sw.checked));
-  perm.addEventListener('click', async () => { if ('Notification' in window){ await Notification.requestPermission(); showPerm(); updateTabBadges(); } });
-  test.addEventListener('click', async () => {
-    if (!('Notification' in window)){ toast('браузер не підтримує сповіщення', true); return; }
-    if (Notification.permission !== 'granted'){ await Notification.requestPermission(); showPerm(); }
-    if (Notification.permission === 'granted'){
-      notify('🔔 ' + t('alerts_test'), t('alerts_test_body'), pushIcon('test'));
-      toast(t('alerts_test') + ' ✓');
-    } else {
-      toast('дозвіл на сповіщення відхилено', true);
-    }
-  });
-  $('al-apply').addEventListener('click', () => {
+  wrap.querySelectorAll('input[data-th]').forEach(inp => { const c = ALERTS[inp.dataset.th]; if (c) inp.value = c.mv ?? c.v ?? c.min ?? ''; });
+  $('al-apply')?.addEventListener('click', () => {
     wrap.querySelectorAll('input[data-al]').forEach(cb => { const c = ALERTS[cb.dataset.al]; if (c) c.on = cb.checked; });
     wrap.querySelectorAll('input[data-th]').forEach(inp => {
       const c = ALERTS[inp.dataset.th], n = parseFloat(inp.value); if (!c || isNaN(n)) return;
       if ('mv' in c) c.mv = n; else if ('v' in c) c.v = n; else if ('min' in c) c.min = n;
     });
     localStorage.setItem('alerts_cfg', JSON.stringify(ALERTS));
-    _alertState = {};   /* reset so a still-true condition re-notifies after a change */
-    if (typeof spushSyncCfg === 'function') spushSyncCfg();   /* push thresholds to server if subscribed */
-    toast('alerts saved');
+    if (typeof spushSyncCfg === 'function') spushSyncCfg();   /* sync the new thresholds to the server */
+    toast(t('alerts_saved') || 'збережено ✓');
   });
 })();
 
@@ -385,6 +361,7 @@ function spushCfg(){
     wind:     ALERTS.windHigh.on ? (ALERTS.windHigh.v / spdMul()) : 0,   /* km/h for the server */
     online:   ALERTS.online.on,                                          /* push when a post returns after a gap */
     offlineMin: ALERTS.offline.min,                                      /* the gap length that counts as "was offline" */
+    solar:    !!ALERTS.solar?.on,                                        /* charge-state pushes: got/lost sun, full, soon */
     livePin:  localStorage.getItem('live_pin') === '1' };               /* background pinned live notification */
 }
 async function spushReg(){
@@ -486,6 +463,32 @@ async function loadDeviceList(){
   $('sp-test')?.addEventListener('click', () => runPushTest('?push_test'));
   $('sp-testall')?.addEventListener('click', () => runPushTest('?push_testall'));
   $('sp-refresh')?.addEventListener('click', loadDeviceList);
+})();
+
+/* Background watchdog (?daemon): manual start button + liveness poll. The server lock
+ * makes ?daemon a singleton, so the button is safe to mash. Status shows whether a worker
+ * holds a fresh lock + when the watchdog last ticked. */
+(function(){
+  const btn = $('wd-start'), stat = $('wd-stat');
+  if (!btn || !stat) return;
+  const render = s => {
+    if (!s){ stat.textContent = '—'; return; }
+    const tick = s.last_tick ? ` · ${t('wd_lasttick') || 'tick'} ${s.last_tick}` : '';
+    stat.innerHTML = s.running
+      ? `<span style="color:var(--ok)">● ${t('wd_running') || 'running'}</span> (${s.lock_age}s)${tick}`
+      : `<span style="color:var(--mut)">○ ${t('wd_stopped') || 'idle'}</span>${tick}`;
+  };
+  async function poll(){
+    if (typeof testMode !== 'undefined' && testMode){ render({ running: false }); return; }
+    try { render(await fjson(SRV + '?daemon_status')); } catch { stat.textContent = '✗'; }
+  }
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; stat.textContent = '…';
+    try { await fjson(SRV + '?daemon=1'); } catch {}
+    setTimeout(() => { btn.disabled = false; poll(); }, 800);
+  });
+  poll();
+  setInterval(() => { if (!document.hidden) poll(); }, 20000);
 })();
 
 /* Live pin: foreground refresh here + server pushes the same tag each POST for

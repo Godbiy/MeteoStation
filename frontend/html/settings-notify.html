@@ -1,12 +1,6 @@
   <div class="card">
     <h2 data-i18n="alerts">🔔 Сповіщення</h2>
-    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="alerts_hint">Push-сповіщення коли вкладка відкрита. Обери які типи приходять.</div>
-    <div class="set-row toggle">
-      <span class="set-lbl" data-i18n="alerts_on_lbl">Сповіщення</span>
-      <div class="sw-wrap">
-        <label class="switch"><input type="checkbox" id="al-sw"><span class="track"><span class="knob"></span></span></label>
-      </div>
-    </div>
+    <div class="muted" style="margin-bottom:8px;font-size:12px" data-i18n="alerts_hint">Які серверні пуші приходять і за якими порогами. Доставку на цей пристрій увімкни нижче у «Серверний пуш».</div>
     <div id="al-types" style="display:flex;flex-direction:column">
       <div class="al-type">
         <label class="al-head"><input type="checkbox" data-al="battLow"><span data-i18n="alert_batt_lbl">Батарея низька &lt;</span></label>
@@ -34,11 +28,6 @@
     <div class="card-actions">
       <button id="al-apply" class="btn primary" data-i18n="apply">Застосувати</button>
     </div>
-    <div class="card-actions">
-      <button id="al-perm" class="btn" data-i18n="alerts_perm">Дозволити</button>
-      <button id="al-test" class="btn" data-i18n="alerts_test">Тест</button>
-    </div>
-    <div class="stat" id="al-stat" style="margin-top:6px;text-align:center"></div>
   </div>
 
   <div class="card">
@@ -64,6 +53,12 @@
       <button id="sp-testall" class="btn" data-i18n="spush_testall">Усі типи</button>
     </div>
     <div class="set-note" id="sp-test-res" style="text-align:center"></div>
+    <div class="set-field" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+      <span class="lbl" data-i18n="wd_lbl">🛰️ Фоновий вартовий</span>
+      <div class="ctl"><button id="wd-start" class="btn sm" data-i18n="wd_start">Увімкнути</button></div>
+    </div>
+    <div class="set-note" data-i18n="wd_hint">Тримає серверний цикл живим, щоб офлайн/Live-пуші йшли навіть без відкритого дашборду. Для повної надійності додай зовнішній крон (cron-job.org → ?tick=1).</div>
+    <div class="stat" id="wd-stat" style="text-align:center"></div>
     <div class="set-field" style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
       <span class="lbl" data-i18n="spush_devices">Підписані пристрої</span>
       <div class="ctl"><button id="sp-refresh" class="btn sm" title="refresh">↻</button></div>

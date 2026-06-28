@@ -16,7 +16,7 @@ body.sunlight .btn.primary,body.sunlight .btn.ok,body.sunlight .btn.active,
 body.sunlight .lang-btn.active,body.sunlight .seg-btn.active,
 body.sunlight .zoom-reset-all{color:#fff}
 /* overlay chips that were hardcoded dark */
-body.sunlight .fs-btn{background:rgba(255,255,255,.82);color:var(--mut)}
+body.sunlight .fs-btn,body.sunlight .dl-btn,body.sunlight .help-btn{background:rgba(255,255,255,.82);color:var(--mut)}
 body.sunlight .zoom-info{background:rgba(255,255,255,.9)}
 /* gauges: light faces + darker labels (dark ticks/needle read fine on light) */
 body.sunlight #cbg stop{stop-color:#eef2f7}
