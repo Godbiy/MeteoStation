@@ -216,9 +216,9 @@ final class WebPush
     private function pushStrings(string $lang): array
     {
         $S = [
-            'uk' => ['batt_low'=>'🔋 Низька батарея','batt_crit'=>'🔴 Критична батарея','wind'=>'💨 Сильний вітер','online'=>'✅ Станція знов онлайн','gusts'=>'пориви','avg'=>'сер','silence'=>'після %d хв тиші','perH'=>'/год','days'=>'дн','test_t'=>'📡 Тест із сервера','test_b'=>'Серверний пуш працює ✅','all_b'=>'усі типи пушів ✅'],
-            'en' => ['batt_low'=>'🔋 Low battery','batt_crit'=>'🔴 Critical battery','wind'=>'💨 High wind','online'=>'✅ Station back online','gusts'=>'gusts','avg'=>'avg','silence'=>'after %d min of silence','perH'=>'/h','days'=>'d','test_t'=>'📡 Test from server','test_b'=>'Server push works ✅','all_b'=>'all push types ✅'],
-            'pl' => ['batt_low'=>'🔋 Niska bateria','batt_crit'=>'🔴 Krytyczna bateria','wind'=>'💨 Silny wiatr','online'=>'✅ Stacja znów online','gusts'=>'porywy','avg'=>'śr','silence'=>'po %d min ciszy','perH'=>'/h','days'=>'d','test_t'=>'📡 Test z serwera','test_b'=>'Push serwerowy działa ✅','all_b'=>'wszystkie typy ✅'],
+            'uk' => ['batt_low'=>'🔋 Низька батарея','batt_crit'=>'🔴 Критична батарея','wind'=>'💨 Сильний вітер','online'=>'✅ Станція знов онлайн','gusts'=>'пориви','avg'=>'сер','silence'=>'після %d хв тиші','perH'=>'/год','days'=>'дн','offline'=>'🔌 Станція мовчить','off_for'=>'вже %d хв без даних','sun_on'=>'☀ Пішов заряд','sun_off'=>'🌙 Сонця нема','batt_full'=>'🔋 Батарея повна','chg_soon'=>'🔆 Скоро повна','test_t'=>'📡 Тест із сервера','test_b'=>'Серверний пуш працює ✅','all_b'=>'усі типи пушів ✅'],
+            'en' => ['batt_low'=>'🔋 Low battery','batt_crit'=>'🔴 Critical battery','wind'=>'💨 High wind','online'=>'✅ Station back online','gusts'=>'gusts','avg'=>'avg','silence'=>'after %d min of silence','perH'=>'/h','days'=>'d','offline'=>'🔌 Station silent','off_for'=>'%d min, no data','sun_on'=>'☀ Charging started','sun_off'=>'🌙 No sun','batt_full'=>'🔋 Battery full','chg_soon'=>'🔆 Almost full','test_t'=>'📡 Test from server','test_b'=>'Server push works ✅','all_b'=>'all push types ✅'],
+            'pl' => ['batt_low'=>'🔋 Niska bateria','batt_crit'=>'🔴 Krytyczna bateria','wind'=>'💨 Silny wiatr','online'=>'✅ Stacja znów online','gusts'=>'porywy','avg'=>'śr','silence'=>'po %d min ciszy','perH'=>'/h','days'=>'d','offline'=>'🔌 Stacja milczy','off_for'=>'%d min bez danych','sun_on'=>'☀ Ładowanie ruszyło','sun_off'=>'🌙 Brak słońca','batt_full'=>'🔋 Bateria pełna','chg_soon'=>'🔆 Prawie pełna','test_t'=>'📡 Test z serwera','test_b'=>'Push serwerowy działa ✅','all_b'=>'wszystkie typy ✅'],
         ];
         return $S[$lang] ?? $S['uk'];
     }
@@ -296,11 +296,38 @@ final class WebPush
                 ]));
                 $st['wind'] = $high;
             }
-            if (!empty($cfg['online']) && $prevPost && $gapMin > (float)($cfg['offlineMin'] ?? 30)) {
+            /* Solar / charge-state (ported from the old foreground alerts): got/lost sun on the
+             * panel-voltage edge, battery full, almost-full. Thresholds match the client defaults. */
+            if (!empty($cfg['solar'])) {
+                $solar    = (int)($data['solar_mv'] ?? 0);
+                $charging = $solar >= 4000;                 /* SOLAR_CHARGE_MV */
+                if ($solar > 0 && array_key_exists('sun', $st)) {
+                    if ($charging && $st['sun'] === false) $this->sendPush($entry['sub'], json_encode([
+                        'title' => $L['sun_on'], 'body' => number_format($solar / 1000, 2) . 'V',
+                        'icon' => $base . '?push_icon=online', 'tag' => 'sun']));
+                    if (!$charging && $st['sun'] === true) $this->sendPush($entry['sub'], json_encode([
+                        'title' => $L['sun_off'], 'body' => '', 'icon' => $base . '?push_icon=crit', 'tag' => 'sun']));
+                }
+                if ($solar > 0) $st['sun'] = $charging;
+                $full = $batt >= 4150;                      /* BATT_FULL_MV */
+                if ($full && empty($st['full'])) $this->sendPush($entry['sub'], json_encode([
+                    'title' => $L['batt_full'], 'body' => number_format($batt / 1000, 2) . 'V',
+                    'icon' => $base . '?push_icon=batt', 'tag' => 'full']));
+                $st['full'] = $full;
+                $soon = $charging && $batt >= 4100 && !$full;   /* BATT_SOON_MV */
+                if ($soon && empty($st['soon'])) $this->sendPush($entry['sub'], json_encode([
+                    'title' => $L['chg_soon'], 'body' => number_format($batt / 1000, 2) . 'V',
+                    'icon' => $base . '?push_icon=batt', 'tag' => 'soon']));
+                $st['soon'] = $soon;
+            }
+            /* Back-online: fire iff tick() previously alerted offline for this device. */
+            if (!empty($cfg['online']) && !empty($st['offline'])) {
+                $mins = $prevPost ? ($now - $prevPost) / 60 : $gapMin;
                 $this->sendPush($entry['sub'], json_encode([
-                    'title' => $L['online'], 'body' => sprintf($L['silence'], round($gapMin)),
+                    'title' => $L['online'], 'body' => sprintf($L['silence'], round($mins)),
                     'icon' => $base . '?push_icon=online', 'tag' => 'online',
                 ]));
+                $st['offline'] = false;
             }
             if (!empty($cfg['livePin'])) {
                 $parts = [];
@@ -323,6 +350,192 @@ final class WebPush
         }
         $state['_lastPost'] = $now;
         $this->store->savePushState($state);
+    }
+
+    /* Freshest readings for the live-pin: the live snapshot if recent, else the last
+     * regular post. Returns a row with batt_mv / solar_mv / csq / speed[]. */
+    private function pinData(): ?array
+    {
+        $live = $this->store->readLive();
+        if ($live && !empty($live['timestamp']) && (time() - strtotime($live['timestamp'])) < 600) {
+            return [
+                'batt_mv'  => $live['batt_mv'] ?? 0,
+                'solar_mv' => $live['solar_mv'] ?? null,
+                'csq'      => $live['csq'] ?? null,
+                'speed'    => [ (int)($live['pulses_sec'] ?? 0) * 2 ],
+            ];
+        }
+        return $this->store->lastRegularEntry();
+    }
+
+    /* Time-based watchdog — runs WITHOUT a station POST. Detects silence (station
+     * offline, the one alert a POST can never fire) and keeps the live-pin fresh.
+     * Idempotent + cheap; driven by ?tick (external cron), ?daemon (self loop) and
+     * lazily by the dashboard's own polling (tickIfDue). */
+    public function tick(): array
+    {
+        $subs  = $this->store->loadPushSubs();
+        $now   = time();
+        $state = $this->store->loadPushState();
+        $lastTs   = $this->store->lastLogTimestamp();
+        $lastPost = $lastTs ? strtotime($lastTs) : 0;
+        $gapMin   = $lastPost ? ($now - $lastPost) / 60 : 0;
+        $base = $this->selfUrl();
+        $d = $this->pinData();
+        /* The state machine is the source of truth for "offline" — it's cycle-relative and
+         * switch-aware, so a config change (e.g. 15min→1min) never reads as a dropped link. */
+        $link = $this->store->linkState();
+        $sinceMin = ($link['since_last_sec'] ?? 0) / 60;   /* silence across regular+live posts */
+        $sent = 0;
+        foreach ($subs as $entry) {
+            $cfg = $entry['cfg'] ?? [];
+            if (empty($cfg['on'])) continue;
+            $ep = $entry['sub']['endpoint'] ?? '';
+            if (!$ep) continue;
+            $muted = !empty($cfg['muteUntil']) && $now < (int)$cfg['muteUntil'];
+            $L  = $this->pushStrings($cfg['lang'] ?? 'uk');
+            $st = $state[$ep] ?? [];
+            /* OFFLINE — fire once when the SM says offline (and past the user's patience floor,
+             * never during 'switching'). The matching back-online push is sent by maybePush()
+             * when a POST clears this flag. */
+            if (!empty($cfg['online']) && $lastPost && !$muted) {
+                $off = $link['state'] === 'offline' && $sinceMin >= (float)($cfg['offlineMin'] ?? 30);
+                if ($off && empty($st['offline'])) {
+                    $this->sendPush($entry['sub'], json_encode([
+                        'title' => $L['offline'],
+                        'body'  => sprintf($L['off_for'], round($gapMin)) . $this->battTrendStr((int)($d['batt_mv'] ?? 0), $L),
+                        'icon'  => $base . '?push_icon=crit', 'image' => $base . '?push_chart=batt&t=' . $now, 'tag' => 'offline',
+                    ]));
+                    $st['offline'] = true; $sent++;
+                }
+            }
+            /* Live-pin refresh between POSTs — the always-on silent "widget". The pinKey
+             * dedup means tick and maybePush never double-send the same content. */
+            if (!empty($cfg['livePin']) && $d && !$muted) {
+                $mul = (float)($cfg['uMul'] ?? 1); $lbl = $cfg['uLbl'] ?? 'km/h';
+                $sf  = (float)($cfg['sf'] ?? 2.4);
+                $sp  = (!empty($d['speed']) && is_array($d['speed'])) ? $d['speed'] : [];
+                $mean = $sp ? array_sum($sp) / count($sp) / 2 * $sf : 0;
+                $parts = [];
+                $batt = (int)($d['batt_mv'] ?? 0);
+                if ($batt > 0)               $parts[] = '🔋 ' . number_format($batt / 1000, 2) . 'V';
+                if (!empty($d['solar_mv']))  $parts[] = '☀ ' . number_format($d['solar_mv'] / 1000, 2) . 'V';
+                $csq = $d['csq'] ?? null;
+                if ($csq !== null && (int)$csq != 99) $parts[] = '📶 ' . $csq;
+                if ($lastPost && $gapMin > (float)($cfg['offlineMin'] ?? 30)) $parts[] = '⚠ ' . round($gapMin) . 'm';
+                $title  = '💨 ' . round($mean * $mul) . ' ' . $lbl;
+                $body   = implode(' · ', $parts);
+                $pinKey = $title . '|' . $body;
+                if (($st['pin'] ?? '') !== $pinKey) {
+                    $this->sendPush($entry['sub'], json_encode([
+                        'pin' => true, 'silent' => true, 'title' => $title, 'body' => $body,
+                        'icon' => $base . '?push_icon=wind', 'tag' => 'live-pin',
+                    ]));
+                    $st['pin'] = $pinKey; $sent++;
+                }
+            }
+            $state[$ep] = $st;
+        }
+        $state['_lastTick'] = $now;
+        $this->store->savePushState($state);
+        return ['tick' => date('H:i:s', $now), 'subs' => count($subs), 'gap_min' => round($gapMin, 1),
+                'offline' => $lastPost ? ($gapMin > 30) : null, 'sent' => $sent];
+    }
+
+    /* Throttled tick for piggy-backing on the dashboard's own polling — keeps the
+     * watchdog cocking while someone is watching, with no cron at all. */
+    public function tickIfDue(int $minGap = 60): void
+    {
+        $st = $this->store->loadPushState();
+        if (time() - (int)($st['_lastTick'] ?? 0) < $minGap) return;
+        $this->tick();
+    }
+
+    /* ?tick — the watchdog endpoint an external scheduler (cron-job.org, UptimeRobot,
+     * GitHub Actions, a phone/PC task) hits every minute. Idempotent; safe to spam. */
+    public function handleTick(): void
+    {
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store');
+        echo json_encode($this->tick());
+    }
+
+    /* ?daemon_status — lightweight liveness for the dashboard: is a worker holding a
+     * fresh lock, when the watchdog last ticked, sub count, and the current silence gap. */
+    public function handleDaemonStatus(): void
+    {
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store');
+        $now    = time();
+        $lk     = $this->readDaemonLock();
+        $lockTs = (int)($lk['ts'] ?? 0);
+        $tickTs = (int)($this->store->loadPushState()['_lastTick'] ?? 0);
+        $lastTs = $this->store->lastLogTimestamp();
+        $last   = $lastTs ? strtotime($lastTs) : 0;
+        echo json_encode([
+            'running'   => $lockTs > 0 && ($now - $lockTs) < 90,
+            'lock_age'  => $lockTs ? $now - $lockTs : null,
+            'tick_age'  => $tickTs ? $now - $tickTs : null,
+            'last_tick' => $tickTs ? date('H:i:s', $tickTs) : null,
+            'subs'      => count($this->store->loadPushSubs()),
+            'gap_min'   => $last ? round(($now - $last) / 60, 1) : null,
+        ]);
+    }
+
+    private function daemonLockPath(): string
+    {
+        return rtrim($this->store->fileDir(), "/\\") . '/MeteoDaemon.lock';
+    }
+    private function readDaemonLock(): array
+    {
+        $j = @json_decode(@file_get_contents($this->daemonLockPath()), true);
+        return is_array($j) ? $j : ['ts' => 0, 'nonce' => ''];
+    }
+    private function writeDaemonLock(string $nonce): void
+    {
+        @file_put_contents($this->daemonLockPath(), json_encode(['ts' => time(), 'nonce' => $nonce]));
+    }
+    private function kickSelf(string $relay = ''): void
+    {
+        $url = $this->selfUrl() . '?daemon=1' . ($relay !== '' ? '&relay=' . $relay : '');
+        $ch  = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 2,
+            CURLOPT_CONNECTTIMEOUT => 2, CURLOPT_NOSIGNAL => true]);
+        @curl_exec($ch);
+        curl_close($ch);
+    }
+
+    /* ?daemon — self-running fallback watchdog for hosts with NO cron. A bounded ~50s
+     * worker that ticks every 10s, then relays a baton to a fresh worker before the FPM
+     * request timeout can kill it. A JSON {ts,nonce} lock makes it a singleton AND stops
+     * the relay from forking: only the holder of the current nonce may spawn a successor,
+     * and a worker that finds the nonce changed under it exits (self-heals to one). The
+     * dashboard re-kicks ?daemon on load, so a dropped baton restarts on the next visit. */
+    public function handleDaemon(): void
+    {
+        header('Content-Type: application/json');
+        header('Cache-Control: no-store');
+        $lk        = $this->readDaemonLock();
+        $fresh     = (time() - (int)($lk['ts'] ?? 0)) < 90;
+        $relay     = (string)($_GET['relay'] ?? '');
+        $successor = $relay !== '' && $relay === ($lk['nonce'] ?? '');
+        if ($fresh && !$successor) { echo json_encode(['ok' => true, 'already' => true]); return; }
+
+        $nonce = bin2hex(random_bytes(6));
+        $this->writeDaemonLock($nonce);
+        @ignore_user_abort(true);
+        @set_time_limit(0);
+        echo json_encode(['ok' => true, 'started' => true, 'nonce' => $nonce]);
+        if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+
+        $start = time();
+        while (time() - $start < 50) {
+            if (($this->readDaemonLock()['nonce'] ?? '') !== $nonce) return;   /* superseded -> exit */
+            $this->tick();
+            $this->writeDaemonLock($nonce);                                    /* heartbeat */
+            sleep(10);
+        }
+        if (($this->readDaemonLock()['nonce'] ?? '') === $nonce) $this->kickSelf($nonce);
     }
 
     public function handlePushTestAll(): void

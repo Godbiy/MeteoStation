@@ -35,20 +35,34 @@ final class Store
 
     public function loadConfig(): array
     {
-        $cfg = ['avg' => self::AVG_OVER_DEFAULT, 'samples' => self::SAMPLES_DEFAULT, 'live' => 0];
+        $cfg = ['avg' => self::AVG_OVER_DEFAULT, 'samples' => self::SAMPLES_DEFAULT, 'live' => 0, 'changed_at' => 0];
         if (file_exists($this->config)) {
             $j = @json_decode(@file_get_contents($this->config), true);
             if (is_array($j)) {
-                if (isset($j['avg']))     $cfg['avg']     = $this->clampAvg((int)$j['avg']);
-                if (isset($j['samples'])) $cfg['samples'] = $this->clampSamples((int)$j['samples']);
-                if (isset($j['live']))    $cfg['live']    = $j['live'] ? 1 : 0;
+                if (isset($j['avg']))        $cfg['avg']        = $this->clampAvg((int)$j['avg']);
+                if (isset($j['samples']))    $cfg['samples']    = $this->clampSamples((int)$j['samples']);
+                if (isset($j['live']))       $cfg['live']       = $j['live'] ? 1 : 0;
+                if (isset($j['changed_at'])) $cfg['changed_at'] = (int)$j['changed_at'];
             }
         }
         return $cfg;
     }
+    /* Persist avg/samples/live and stamp `changed_at` only when a value actually changes —
+     * that timestamp is the anchor linkState() uses to know a config change is in-flight
+     * (pending) until the module confirms it on its next POST. */
     public function saveConfig(array $cfg): bool
     {
-        return (bool) @file_put_contents($this->config, json_encode($cfg) . "\n");
+        $prev    = $this->loadConfig();
+        $changed = ((int)$prev['avg'] !== (int)$cfg['avg'])
+                || ((int)$prev['samples'] !== (int)$cfg['samples'])
+                || ((int)$prev['live'] !== (int)($cfg['live'] ?? 0));
+        $out = [
+            'avg'        => $cfg['avg'],
+            'samples'    => $cfg['samples'],
+            'live'       => $cfg['live'] ?? 0,
+            'changed_at' => $changed ? time() : (int)($prev['changed_at'] ?? 0),
+        ];
+        return (bool) @file_put_contents($this->config, json_encode($out) . "\n");
     }
     public function clampSamples(int $n): int
     {
@@ -199,11 +213,105 @@ final class Store
         return null;
     }
 
+    /* Full last REGULAR log entry (skips live=1). Lets the Status tab show what the
+     * module ACTUALLY reported last (samples received, cycle#, batt/solar/csq) instead
+     * of inferring it — and confirm a pending config change against real data. */
+    public function lastRegularEntry(): ?array
+    {
+        $tail = $this->readTail(400);
+        for ($i = count($tail) - 1; $i >= 0; $i--) {
+            if (empty($tail[$i]['live'])) return $tail[$i];
+        }
+        return null;
+    }
+
     public function humanDuration(?int $sec): ?string
     {
         if (!$sec) return null;
         if ($sec < 60)   return $sec . ' s';
         if ($sec < 3600) return round($sec / 60, 1) . ' min';
         return round($sec / 3600, 1) . ' h';
+    }
+
+    /* ---- Connection / config state machine (single source of truth) ----
+     *
+     * Coarse link+config lifecycle consumed by BOTH the dashboard (banner/colour) and the
+     * push watchdog (offline decision), so they never disagree. States:
+     *   nodata       — no post yet
+     *   online       — posting on schedule
+     *   late         — overdue past the green window but inside the auto-reboot window (yellow)
+     *   switching    — a config change the module hasn't CONFIRMED yet (calm, not offline)
+     *   offline      — silent beyond the reboot window (red) → the push fires here
+     *   live         — live mode, streaming
+     *   live_pending — live mode requested, module hasn't entered the live loop yet
+     *
+     * "Applied" is ground-truth: a REGULAR post AFTER the change must report the new sample
+     * count (avg-only / live toggles accept on the first fresh post — avg isn't in the payload).
+     * While switching, late/offline math uses the LARGER of observed/intended cycle, so a
+     * 15min→1min change can't false-alarm before the module has actually switched. Thresholds
+     * mirror computeUptime(): green ≤ max(1.5C, C+30) · yellow ≤ +2C · red beyond. */
+    public function linkState(): array
+    {
+        $cfg       = $this->loadConfig();
+        $last      = $this->lastRegularEntry();
+        $now       = time();
+        $intended  = $cfg['samples'] * $cfg['avg'] * 2 + 15;
+        $observed  = $this->observedCycleSec() ?: 0;
+        $changedAt = (int)($cfg['changed_at'] ?? 0);
+        $lastReg   = ($last && !empty($last['timestamp'])) ? strtotime($last['timestamp']) : 0;
+
+        /* Freshest proof of life across BOTH a regular post AND the live snapshot, regardless
+         * of the current mode flag. Crucial during a live↔normal switch: one source is briefly
+         * stale (e.g. just entered live → no regular posts; just left live → live snapshot old),
+         * and measuring against the stale one used to read as a dropped link → false offline. */
+        $ref  = $lastReg;
+        $live = $this->readLive();
+        if ($live && !empty($live['timestamp'])) { $t = strtotime($live['timestamp']); if ($t && $t > $ref) $ref = $t; }
+        $since = $ref ? $now - $ref : null;
+
+        /* config-applied detection */
+        $pending = false; $applied = true;
+        if ($changedAt > 0) {
+            $postAfter    = $ref > $changedAt;
+            $samplesMatch = $last && ((int)($last['samples'] ?? -1) === (int)$cfg['samples']);
+            $applied = $postAfter && $samplesMatch;
+            $pending = !$applied;
+        }
+
+        /* effective cycle the module is really running */
+        $base  = $observed ?: $intended;
+        $cycle = $pending ? max($observed, $intended, $base) : $base;
+        if ($cfg['live']) $cycle = 90;            /* live posts are frequent (3–60s over GSM) */
+        if ($cycle < 20)  $cycle = $intended ?: 60;
+
+        $greenMax  = max($cycle * 1.5, $cycle + 30);
+        $yellowEnd = $greenMax + 2 * $cycle;
+        $nextExp   = $ref ? max(0, ($ref + $cycle) - $now) : null;
+
+        if ($since === null) {
+            $state = 'nodata';
+        } elseif ($since > $yellowEnd) {
+            $state = 'offline';                   /* genuinely dead — even mid-switch */
+        } elseif ($cfg['live']) {
+            $state = ($since < $greenMax) ? 'live' : ($pending ? 'switching' : 'live_pending');
+        } elseif ($pending) {
+            $state = 'switching';                 /* calm amber, NOT a scary red */
+        } elseif ($since > $greenMax) {
+            $state = 'late';
+        } else {
+            $state = 'online';
+        }
+
+        return [
+            'state'             => $state,
+            'pending'           => $pending,
+            'applied'           => $applied,
+            'cycle_eff_sec'     => (int)round($cycle),
+            'since_last_sec'    => $since,
+            'next_expected_sec' => $nextExp !== null ? (int)round($nextExp) : null,
+            'green_max_sec'     => (int)round($greenMax),
+            'yellow_end_sec'    => (int)round($yellowEnd),
+            'changed_at'        => $changedAt,
+        ];
     }
 }

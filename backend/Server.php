@@ -37,6 +37,11 @@ final class Server
 
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $g = $_GET;
+            /* Lazy watchdog: piggy-back the time-based push checks on the dashboard's own
+             * polling so silence/live-pin advance even with no cron, while someone watches.
+             * Throttled internally; skipped for the watchdog/asset routes themselves. */
+            if (!isset($g['tick']) && !isset($g['daemon']) && !isset($g['asset']) && !isset($g['ui']))
+                $this->push->tickIfDue();
             if (isset($g['ui']))            { $this->ui->handleUi(); exit; }
             if (isset($g['asset']))         { $this->ui->handleAsset(); exit; }
             if (isset($g['set_avg']))       { $this->api->handleSetAvg(); exit; }
@@ -56,6 +61,9 @@ final class Server
             if (isset($g['push_testall']))  { $this->push->handlePushTestAll(); exit; }
             if (isset($g['push_list']))     { $this->push->handlePushList(); exit; }
             if (isset($g['push_chart']))    { $this->push->handlePushChart(); exit; }
+            if (isset($g['tick']))          { $this->push->handleTick(); exit; }
+            if (isset($g['daemon_status'])) { $this->push->handleDaemonStatus(); exit; }
+            if (isset($g['daemon']))        { $this->push->handleDaemon(); exit; }
             if (isset($g['manifest']))      { $this->ui->handlePwaManifest(); exit; }
             if (isset($g['icon']))          { $this->ui->handlePwaIcon(); exit; }
             if (isset($g['icon_png']))      { $this->ui->handlePwaIconPng(); exit; }

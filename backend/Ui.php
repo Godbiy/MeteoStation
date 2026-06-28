@@ -33,7 +33,7 @@ final class Ui
                    'calib.html', 'footer.html'],
         'css'  => ['base.css', 'cards.css', 'charts.css', 'light.css', 'mobile.css'],
         'js'   => ['i18n.js', 'lite-pwa.js', 'tabs.js', 'state.js', 'gauges-calib.js', 'utils.js',
-                   'live.js', 'live-ctl.js', 'history.js', 'poll-test.js', 'zoom.js', 'boot.js'],
+                   'store.js', 'live.js', 'live-ctl.js', 'history.js', 'poll-test.js', 'zoom.js', 'help.js', 'boot.js'],
     ];
 
     private function assemble(string $type): ?string

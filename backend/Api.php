@@ -58,7 +58,11 @@ final class Api
         $cfg      = $this->store->loadConfig();
         $obs      = $this->store->observedCycleSec();
         $intended = $cfg['samples'] * $cfg['avg'] * 2 + 15;   /* each raw read = 2s + ~15s GSM overhead */
-        echo json_encode([
+        /* Ground-truth facts from the module's last REGULAR POST — the Status tab uses
+         * these to SHOW what actually happened (samples received, cycle#, batt/csq) and
+         * to confirm a pending config change against real data instead of guessing. */
+        $last = $this->store->lastRegularEntry() ?? [];
+        echo json_encode(array_merge([
             'avg'                    => $cfg['avg'],
             'samples'                => $cfg['samples'],
             'samples_max'            => Store::SAMPLES_MAX,
@@ -70,7 +74,14 @@ final class Api
             'last_timestamp'         => $this->store->lastLogTimestamp(),
             'boot_timestamp'         => $this->store->lastBootTimestamp(),
             'config_persisted'       => file_exists($this->store->configPath()),
-        ]);
+            'last_samples'           => $last['samples']   ?? null,
+            'last_cycle'             => $last['cycle']     ?? null,
+            'last_batt_mv'           => $last['batt_mv']   ?? null,
+            'last_solar_mv'          => $last['solar_mv']  ?? null,
+            'last_csq'               => $last['csq']       ?? null,
+            'last_raw_bytes'         => $last['raw_bytes'] ?? null,
+            'last_version'           => $last['version']   ?? null,
+        ], $this->store->linkState()));   /* state/pending/applied/cycle_eff_sec/next_expected_sec/… */
     }
 
     public function handleSetAvg(): void
@@ -138,6 +149,10 @@ final class Api
             $since = (int)$_GET['since'];
             $entries = array_values(array_filter($this->store->readAll(),
                 fn($e) => (isset($e['timestamp']) ? strtotime($e['timestamp']) : 0) > $since));
+            if (isset($_GET['limit'])) {            /* page the backfill: earliest N after `since` */
+                $lim = max(1, min(2000, (int)$_GET['limit']));
+                $entries = array_slice($entries, 0, $lim);
+            }
         } elseif (isset($_GET['range'])) {
             $cutoff = time() - $this->parseRange($_GET['range']);
             $entries = array_values(array_filter($this->store->readAll(),
@@ -169,9 +184,6 @@ final class Api
         $compact = isset($_GET['compact']);
         $entries = array_map(fn($e) => $this->enrichEntry($e, $compact), $entries);
 
-        if (isset($_GET['bin'])) {
-            $entries = $this->bucketAggregate($entries, max(60, (int)$_GET['bin']));
-        }
         if (($_GET['fmt'] ?? '') === 'c') {
             $entries = array_map([$this, 'toCompactKeys'], $entries);
         }
@@ -234,47 +246,5 @@ final class Api
         $e['vane_mode_label'] = ($modeIdx >= 0) ? $dirs[$modeIdx] : '—';
         if ($compact && !isset($_GET['keep_raw'])) { unset($e['vane'], $e['speed']); }
         return $e;
-    }
-
-    /* Group entries into fixed time buckets; aggregate each bucket. */
-    private function bucketAggregate(array $entries, int $binSec): array
-    {
-        $buckets = [];
-        foreach ($entries as $e) {
-            if (empty($e['timestamp'])) continue;
-            $ts = strtotime($e['timestamp']);
-            if (!$ts) continue;
-            $buckets[intdiv($ts, $binSec) * $binSec][] = $e;
-        }
-        ksort($buckets);
-        $out = [];
-        $dirs = ['N','NE','E','SE','S','SW','W','NW'];
-        foreach ($buckets as $bts => $items) {
-            $batt    = array_filter(array_column($items, 'batt_mv'), 'is_numeric');
-            $csqVals = array_filter(array_column($items, 'csq'), fn($v) => is_numeric($v) && $v !== 99);
-            $spMean  = array_filter(array_column($items, 'speed_mean'), 'is_numeric');
-            $spMax   = array_filter(array_column($items, 'speed_max'), 'is_numeric');
-            $vaneFreq = array_fill(0, 8, 0);
-            foreach ($items as $it) {
-                if (isset($it['vane_freq']) && is_array($it['vane_freq'])) {
-                    for ($i = 0; $i < 8; $i++) $vaneFreq[$i] += (int)($it['vane_freq'][$i] ?? 0);
-                }
-            }
-            $maxFreq = max($vaneFreq);
-            $modeIdx = ($maxFreq > 0) ? array_search($maxFreq, $vaneFreq) : -1;
-            $out[] = [
-                'timestamp'       => date('Y-m-d H:i:s', $bts),
-                'bucket'          => true,
-                'count'           => count($items),
-                'batt_mv'         => $batt ? (int)round(array_sum($batt) / count($batt)) : 0,
-                'csq'             => $csqVals ? (int)round(array_sum($csqVals) / count($csqVals)) : 99,
-                'speed_mean'      => $spMean ? round(array_sum($spMean) / count($spMean), 2) : 0,
-                'speed_max'       => $spMax ? max($spMax) : 0,
-                'vane_freq'       => $vaneFreq,
-                'vane_mode'       => $modeIdx,
-                'vane_mode_label' => $modeIdx >= 0 ? $dirs[$modeIdx] : '—',
-            ];
-        }
-        return $out;
     }
 }
