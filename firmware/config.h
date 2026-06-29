@@ -69,8 +69,9 @@
 #define DELAY_HRST_MS         3000
 #define DELAY_CREG_POLL_MS    2000
 
-/* Server endpoint (HTTPS — A7672E handles TLS via AT+HTTPSSL). */
-#define SERVER_URL  "https://stelnet.stelweld.com.pl/petro/MeteoStation/TestKurwa"
+/* Server endpoint (HTTPS — A7672E handles TLS via AT+HTTPSSL). Set this to YOUR host (e.g. an
+ * examples/standalone deployment). The real host URL is kept out of git via skip-worktree. */
+#define SERVER_URL  "https://your-host.example/meteo/"
 
 /* Payload */
 #define PAYLOAD_VERSION       0x04  /* v0x04: adds solar_mv (uint16 LE) after batt_mv */

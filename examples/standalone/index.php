@@ -23,7 +23,10 @@ $cfg = $secrets + [
     'live'      => $data . '/live.json',
     'pushSubs'  => $data . '/push_subs.json',
     'pushState' => $data . '/push_state.json',
-    'fileDir'   => __DIR__ . '/public',   /* dashboard.html + serial.html served from here */
+    /* UI source: point straight at the repo's frontend/ tree — Ui resolves the named fragments
+     * from its html/ css/ js/ subdirs (and sw.js + manifest.json from its root), so there is NO
+     * copy/build step. Drop in a flat dir of fragments instead if you prefer to vendor the UI. */
+    'fileDir'   => dirname(__DIR__, 2) . '/frontend',
     'selfPath'  => __FILE__,
 ];
 

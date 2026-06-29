@@ -2,8 +2,9 @@
 const DIRS = ['N','NE','E','SE','S','SW','W','NW'];
 const $ = id => document.getElementById(id);
 const icSvg = id => `<svg class="ic"><use href="#${id}"/></svg>`;   /* inline icon helper */
-const SRV = (location.search.match(/srv=([^&]+)/)||[])[1]
-         || 'https://stelnet.stelweld.com.pl/petro/MeteoStation/TestKurwa';
+/* API base: ?srv= override, else same-origin (the endpoint that served this dashboard). */
+const SRV = (m => m ? decodeURIComponent(m[1]) : (location.origin + location.pathname))
+            ((location.search.match(/srv=([^&]+)/)||null));
 $('srv-link').href = SRV; $('srv-link').textContent = SRV;
 
 /* =========== I18N =========== */

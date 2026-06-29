@@ -36,19 +36,32 @@ final class Ui
                    'store.js', 'live.js', 'live-ctl.js', 'history.js', 'poll-test.js', 'zoom.js', 'help.js', 'boot.js'],
     ];
 
+    /* Resolve a fragment/asset to a path. The host deploys everything FLAT in fileDir (the ?edit
+     * endpoint writes basenames only), so flat wins. As a fallback we also look in the source-tree
+     * subdirs (html/ css/ js/), so a normal host can point fileDir straight at the repo's
+     * frontend/ with ZERO copy step (see examples/standalone). Returns null if found nowhere. */
+    private function resolve(string $name): ?string
+    {
+        if (is_file($this->fileDir . '/' . $name)) return $this->fileDir . '/' . $name;
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        $sub = ['html' => 'html', 'css' => 'css', 'js' => 'js'][$ext] ?? null;
+        if ($sub !== null && is_file($this->fileDir . '/' . $sub . '/' . $name)) return $this->fileDir . '/' . $sub . '/' . $name;
+        return null;
+    }
+
     private function assemble(string $type): ?string
     {
         $out = ''; $any = false;
         foreach (self::ORDER[$type] as $name) {
-            $c = @file_get_contents($this->fileDir . '/' . $name);
-            if ($c !== false) { $out .= $c; $any = true; }
+            $p = $this->resolve($name);
+            if ($p !== null) { $out .= (string)@file_get_contents($p); $any = true; }
         }
         return $any ? $out : null;
     }
     private function newestMtime(): int
     {
         $m = 0;
-        foreach (self::ORDER as $list) foreach ($list as $name) $m = max($m, (int)@filemtime($this->fileDir . '/' . $name));
+        foreach (self::ORDER as $list) foreach ($list as $name) { $p = $this->resolve($name); if ($p !== null) $m = max($m, (int)@filemtime($p)); }
         return $m;
     }
     private function buildVer(): string

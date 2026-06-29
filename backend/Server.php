@@ -4,7 +4,7 @@ namespace Meteo;
 /* Front controller — pure router. Wires the components from a $cfg array (paths + secrets)
  * and dispatches each request to one of: Api (station POST + history/config), Ui (dashboard /
  * PWA), WebPush (push), Admin (key-gated edit). Build with $cfg and call handle().
- * See examples/standalone/index.php and the stelnet bootstrap (server/meteo.php). */
+ * See examples/standalone/index.php (the private host adapter wires it the same way). */
 final class Server
 {
     private Api $api;

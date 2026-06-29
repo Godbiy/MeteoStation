@@ -1,6 +1,6 @@
 <?php
 /* Host smoke test — validates the library loads + constructs without touching the live
- * endpoint. Run on the host BEFORE cutover:  php /st/petro/tmp/meteo/src/Meteo/smoke.php
+ * endpoint. Run on the host BEFORE cutover:  php path/to/Meteo/smoke.php
  * Prints "OK" or the first fatal (file:line). Catches autoload/parse/construct errors. */
 spl_autoload_register(function ($c) {
     if (strncmp($c, 'Meteo\\', 6) !== 0) return;

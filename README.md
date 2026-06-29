@@ -18,10 +18,10 @@ frontend/        UI split into one-concern-per-file fragments the server ASSEMBL
 firmware/        AVR firmware (C). main.c = non-blocking state machine; gsm.c, sensor.c,
                  power.c, dbgUart.c (soft-UART debug). config.h = all build flags.
 firmware/probes/ standalone hardware bring-up sketches (gitignored)
-server/          stelnet host adapter: meteo.php (thin bootstrap), deploy.sh, config.example.php
-                 (config.php + test_ci.py gitignored)
-examples/        standalone/ — ready-to-run server for a normal PHP host (index.php + .htaccess)
-docs/            datasheets (A7672E), PCB/schematic JSON + viewers, AVR cheatsheet
+examples/        standalone/ — the supported server: ready-to-run on any normal PHP host
+                 (index.php + .htaccess), serves the UI straight from frontend/, no build
+docs/            API.md (full HTTP endpoint reference), datasheets (A7672E),
+                 PCB/schematic JSON + viewers, AVR cheatsheet
 build/           firmware build outputs (gitignored)
 ```
 
@@ -51,38 +51,31 @@ Debug: soft-UART TX on **PC1 @ 4800 baud** (connect a USB-UART RX). `DEBUG_LEVEL
 Key flags in `firmware/config.h`: `FAST_TEST_MODE`, `DEBUG_SENSOR_ONLY`, `DEBUG_LEVEL`,
 `GSM_MAX_RETRIES`, `SERVER_URL` (where the firmware POSTs).
 
-## Server — deploy
+## Server — run it
 
-The backend is the `Meteo\*` library in [`backend`](backend). There is **no build step**.
-On the stelnet host, `server/meteo.php` is a thin bootstrap that autoloads the library from
-`FILE_DIR/src/Meteo` and runs it; the library, UI, and secrets are served from `FILE_DIR` at
-runtime (the web root can't take new files). For a normal host, see
-[`examples/standalone`](examples/standalone) instead.
+The backend is the `Meteo\*` library in [`backend`](backend) plus the UI fragments in
+[`frontend`](frontend). There is **no build step**. The supported, self-contained server is
+[`examples/standalone`](examples/standalone) — drop it on any normal PHP host (Apache + mod_rewrite,
+or nginx rewriting to `index.php`):
 
 ```bash
-# 1. one-time on the host — a dir the web user can write to (the web root usually can't
-#    create new files). Must match FILE_DIR in meteo.php:
-mkdir -p /st/petro/tmp/meteo && chmod 777 /st/petro/tmp/meteo
-
-# 2. one-time local — your secrets (gitignored):
-cp server/config.example.php server/config.php      # then edit EDIT_KEY + VAPID keys
-
-# 3. deploy (no build):
-./server/deploy.sh                                  # or: ./server/deploy.sh <ENDPOINT_URL>
+cp examples/standalone/config.example.php examples/standalone/config.php   # EDIT_KEY + VAPID (gitignored)
 ```
 
-`deploy.sh` reads `EDIT_KEY` from `config.php` and POSTs each file to the self-edit endpoint:
-`meteo.php` overwrites itself (`?edit=1`, `php -l` + `.bak`); the backend (`backend/*.php` →
-FILE_DIR/src/Meteo), UI, and `config.php` go into `FILE_DIR` (`?edit=1&file=NAME[&src]`) and are read at runtime
-(`?ui=1` serves the dashboard, secrets via `require`, classes via the bootstrap's autoloader).
-Edit a file → re-run `deploy.sh`. The service worker pre-caches the dashboard so the app works
-offline. Verify: `?config=1`, `?ui=1`, `?push_selftest=1` (`roundtrip:OK`).
+Then point a vhost docroot at `examples/standalone/` (or copy it onto the host) and set the
+firmware's `SERVER_URL` to that directory. `index.php` wires paths + secrets, points `fileDir` at
+the repo's `frontend/`, and runs `(new Meteo\Server($cfg))->handle()`. The server assembles the
+dashboard from the fragments on each request and the service worker pre-caches it for offline use —
+nothing to copy or compile. Verify: `?config=1`, `?ui=1`, `?push_selftest=1` (`roundtrip:OK`).
 
-**Hosting note:** `server/meteo.php` defines a class named `TestKurwa` (the path the stelnet
-framework routes to) whose constructor builds `Meteo\Server` and runs it. On a normal host you
-don't need this shim — use `examples/standalone` and point the firmware's `SERVER_URL` at it.
-If a fatal ever takes the bootstrap down, run `php FILE_DIR/src/Meteo/smoke.php` to find the bad
-class, or `cp …/TestKurwa.php.bak …/TestKurwa.php` over shell.
+See [`examples/standalone/README.md`](examples/standalone/README.md) for details and
+[`docs/API.md`](docs/API.md) for the full endpoint reference.
+
+> **Deploying to a locked-down shared host?** A host that can't take new files over FTP/SSH can be
+> served by the same library through the self-overwrite `?edit` endpoint (see `Admin`/`docs/API.md`).
+> The adapter for the specific host this project runs on lives in a private, gitignored `server/`
+> directory — it's infra-specific (a fixed live URL, a writable `FILE_DIR`, a framework entry class)
+> and is intentionally not part of the public project.
 
 ## Notifications (server-side push)
 
@@ -93,7 +86,7 @@ time-based watchdog (`WebPush::tick()`) that runs independently of POSTs via thr
 
 - **lazy-tick** — piggy-backs on the dashboard's own polling (no cron needed while a tab is open);
 - **`?tick=1`** — hit by an external scheduler every minute (recommended): **cron-job.org** /
-  UptimeRobot / a GitHub Actions `schedule:` workflow → `…/TestKurwa?tick=1`. The host needs no
+  UptimeRobot / a GitHub Actions `schedule:` workflow → `…/?tick=1`. The host needs no
   crontab — the heartbeat lives anywhere that can `curl` a URL;
 - **`?daemon=1`** — a self-relaying host-side worker (singleton `{ts,nonce}` lock) as a no-cron
   fallback; Settings → Notify has an **Enable** button + a `?daemon_status` liveness line.
@@ -103,9 +96,11 @@ time-based watchdog (`WebPush::tick()`) that runs independently of POSTs via thr
 config/cycle change. Per-device thresholds/types live in the dashboard (Settings → Сповіщення)
 and are stored per push subscription.
 
-## Endpoints (quick reference)
+## Endpoints
 
-`POST` binary payload → logged. `GET ?ui=1` dashboard · `?config=1` runtime config + connection
-state · `?since=/range=` history JSON · `?sw=1` service worker · `?manifest=1` PWA manifest ·
-`?push_*` web-push subscribe/test · `?tick=1` watchdog · `?daemon=1` / `?daemon_status` host
-daemon. Admin actions (`?edit`, `?wipe_log`, `?gen_demo`, …) require `&key=EDIT_KEY`.
+The route is chosen by HTTP method + a query flag (`?ui=1`, `?config=1`, …) — no path routing,
+no `.php`. In short: `POST` (binary) → logged · `?ui=1` dashboard · `?config=1` config + connection
+state · `?since=`/`?range=` history · `?sw=1`/`?manifest=1` PWA · `?push_*` web push · `?tick=1`
+watchdog · admin (`?edit`, `?wipe_log`, `?gen_demo`, `?save_calib`) require `&key=EDIT_KEY`.
+
+**Full reference with every parameter, response shape, and auth: [`docs/API.md`](docs/API.md).**

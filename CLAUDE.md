@@ -13,16 +13,17 @@ Fuses (low-power, BOD disabled):
 
 ```
 backend/    PHP library, 1 class/file: Server, Api, Store, Payload, WebPush, Ui, Admin
-            (namespace Meteo; deployed to FILE_DIR/src/Meteo on the host, see deploy.sh).
+            (namespace Meteo; the server wires it from a $cfg of paths + secrets).
 frontend/   UI in named fragments the server CONCATENATES (no build) in an explicit order
             (Ui::ORDER): html/*.html -> shell (?ui=1); css/*.css -> ?asset=dashboard.css;
             js/*.js -> ?asset=dashboard.js. Plus sw.js + manifest.json. Calib is a tab.
 firmware/   AVR sources (main.c, gsm.c, sensor.c, power.c, dbgUart.c) + config.h.
             firmware/probes/ = bring-up sketches (gitignored)
-server/     stelnet adapter: meteo.php (thin bootstrap), deploy.sh, config.example.php
-            (config.php, test_ci.py gitignored)
-examples/   standalone/ = ready-to-run server for a normal PHP host (index.php + .htaccess)
-docs/       A7672E datasheets, PCB schematic JSON + viewers, avr_cheatsheet.md
+examples/   standalone/ = the supported server for a normal PHP host (index.php + .htaccess);
+            serves the UI straight from frontend/, no build/copy step.
+server/     PRIVATE host adapter for one locked-down shared host (whole dir gitignored): a thin
+            bootstrap + deploy.sh + config.php. Infra-specific, on disk only, never committed.
+docs/       API.md (full endpoint reference), A7672E datasheets, PCB JSON + viewers, avr_cheatsheet.md
 build/      firmware outputs (gitignored)
 ```
 
@@ -51,28 +52,32 @@ The backend is the **`Meteo\*` library** in `backend/` (one class per file): `Se
 router), `Api` (station POST + history/config API), `Store` (all file IO), `Payload` (binary
 decode + CRC), `WebPush` (VAPID), `Ui` (dashboard/serial/PWA), `Admin` (key-gated edit/restore/wipe).
 
-- `server/meteo.php` — **thin bootstrap** for the stelnet host: defines class `TestKurwa` (the path the framework routes to), autoloads `Meteo\*` from `FILE_DIR/src/Meteo`, and runs `(new \Meteo\Server($cfg))->handle()`. The web root can't take new files, so the library + UI + config all live in `FILE_DIR` (`/st/petro/tmp/meteo`, chmod 777).
-- `dashboard.html` — operator UI (live, history, status, settings, and a native vane-calibration tab: Web-Serial COM **or** GSM-live source, 8-point grid, push/pull to the server).
-- `deploy.sh` — **no build step**: pushes `src/Meteo/*.php` (`?edit&file=X.php&src`), UI, and `config.php` into `FILE_DIR`, then the bootstrap to itself (`?edit`). Re-run after any edit.
-- `config.example.php` → copy to `config.php` (gitignored): `EDIT_KEY` + VAPID keys, `require`d at runtime from `FILE_DIR`. Never in git.
-- `examples/standalone/` — the same library wired for a normal host (no FILE_DIR trick).
+- The server is wired from a `$cfg` array (file paths + secrets) and dispatched with
+  `(new \Meteo\Server($cfg))->handle()`. The dashboard is assembled from the `frontend/` fragments
+  on each request (operator UI: live, history, status, settings, and a native vane-calibration tab —
+  Web-Serial COM **or** GSM-live source, 8-point grid, push/pull to the server).
+- `examples/standalone/` — the supported wiring for a normal host: `index.php` sets `$cfg` (paths in
+  `data/`, `fileDir` → `frontend/`) and runs. `config.example.php` → `config.php` (gitignored):
+  `EDIT_KEY` + VAPID keys. Full route list in `docs/API.md`.
+- `server/` — a PRIVATE adapter for one locked-down shared host (whole dir gitignored, on disk
+  only). That host can't take new files over FTP/SSH, so a thin bootstrap serves the library from a
+  writable runtime dir and `deploy.sh` pushes every file in via the self-overwrite `?edit` endpoint.
+  Infra-specific; **not part of the public project** — don't reintroduce its URL/paths into git.
 - `test_ci.py` — Playwright UI/endpoint suite (gitignored).
-- Lockout recovery: `php FILE_DIR/src/Meteo/smoke.php` validates the library loads; `?restore=1&key=` or a shell `cp …/TestKurwa.php.bak` restores the bootstrap.
 
 ### Deploy
 
-Live endpoint `https://stelnet.stelweld.com.pl/petro/MeteoStation/TestKurwa` — **no `.php`** (adding it triggers a login redirect; the bare framework path bypasses session auth).
-
-One-time host setup (a dir the web user can write — the web root can't create new files):
-`mkdir -p /st/petro/tmp/meteo && chmod 777 /st/petro/tmp/meteo` (must match `FILE_DIR`).
+Public path — [`examples/standalone`](examples/standalone), no build/copy step:
 
 ```bash
-cp server/config.example.php server/config.php   # fill EDIT_KEY + VAPID (gitignored)
-./server/deploy.sh                               # pushes meteo.php + UI + config (no build)
+cp examples/standalone/config.example.php examples/standalone/config.php   # EDIT_KEY + VAPID
+# then point a vhost docroot at examples/standalone/ and set the firmware SERVER_URL to it
 ```
 
-`?edit=1` does a `php -l` check + keeps a `.bak`. Verify after: `?config=1` (JSON), `?ui=1`
-(dashboard), `?push_selftest=1` (`"roundtrip":"OK"` = VAPID ok). On breakage: `?restore=1&key=…`.
+`?edit=1` (admin) does a `php -l` check + keeps a `.bak`. Verify after deploy: `?config=1` (JSON),
+`?ui=1` (dashboard), `?push_selftest=1` (`"roundtrip":"OK"` = VAPID ok). On a self-edit breakage:
+`?restore=1&key=…`. The private locked-down-host adapter has its own gitignored `server/deploy.sh`
+(read it on disk when working that host).
 
 ### Push watchdog (offline / live-pin)
 
@@ -83,16 +88,16 @@ driven by three layers (all idempotent, same code):
 
 1. **Lazy-tick** — `tickIfDue(60)` piggy-backs on the dashboard's own GET polling (wired in
    `Server::handle`). Advances while any dashboard is open, zero cron.
-2. **External cron (recommended primary)** — `?tick=1` (`handleTick`). The stelnet host has no
-   crontab, **but the heartbeat doesn't need to live on the host**: point any external scheduler at
-   the bare URL. Free + reliable options:
-   - **cron-job.org** — add job, URL `…/TestKurwa?tick=1`, every 1 min. (UptimeRobot / EasyCron work too.)
+2. **External cron (recommended primary)** — `?tick=1` (`handleTick`). A host with no crontab still
+   doesn't need the heartbeat to live on it: point any external scheduler at the URL. Free + reliable
+   options:
+   - **cron-job.org** — add job, URL `…/?tick=1`, every 1 min. (UptimeRobot / EasyCron work too.)
    - **GitHub Actions** — a `schedule:` workflow that `curl`s the URL (min 5-min granularity).
    - Any always-on device (phone Tasker / PC Task Scheduler / Pi).
 3. **Self-running daemon (host-only fallback)** — `?daemon=1` (`handleDaemon`): a bounded ~50s worker
    that ticks every 10s then relays a baton to a fresh worker via `fastcgi_finish_request` + self-curl,
-   before the FPM request timeout kills it. A `{ts,nonce}` lock at `FILE_DIR/MeteoDaemon.lock` makes it
-   a singleton and stops the relay from forking. `boot.js` re-kicks it every 4 min (only if the user
+   before the FPM request timeout kills it. A `{ts,nonce}` lock (`MeteoDaemon.lock` in the runtime dir)
+   makes it a singleton and stops the relay from forking. `boot.js` re-kicks it every 4 min (only if the user
    granted notifications); the Settings → Notify card has a manual **Enable** button + liveness status
    (`?daemon_status`). Verified working on the live host, but inherently flakier than an external cron.
 
